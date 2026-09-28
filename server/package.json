@@ -1,0 +1,39 @@
+{
+  "name": "@ad-gestion/server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API backend — AD Gestion",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
+    "db:seed": "node prisma/seed.js",
+    "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://church_app:church_dev_2026@localhost:5432/church_test_db node --test --test-concurrency=1 test/*.test.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "csv-stringify": "^6.1.0",
+    "docx": "^9.7.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.16.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "prisma": "^6.2.1",
+    "supertest": "^7.0.0"
+  }
+}
