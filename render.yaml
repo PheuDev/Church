@@ -4,8 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build
-    preDeployCommand: npm run db:push -w server && npm run db:seed -w server
-    startCommand: npm start
+    startCommand: npm run db:push -w server && npm run db:seed -w server && npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
