@@ -2,7 +2,7 @@ services:
   - type: web
     name: ad-gestion
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci && npm run build
     preDeployCommand: npm run db:push -w server && npm run db:seed -w server
     startCommand: npm start
@@ -21,6 +21,6 @@ services:
 
 databases:
   - name: ad-gestion-db
-    plan: basic-256mb
+    plan: free
     databaseName: ad_gestion
     user: ad_gestion
