@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Field, Input, Textarea, Select, Button, cn } from './ui.jsx';
 import { toInputDate, toInputDateTime } from '../lib/format.js';
 import { ENUMS } from '../lib/enums.js';
+import { useI18n } from '../lib/i18n.jsx';
 import { list } from '../api/http.js';
 
 /**
@@ -22,7 +23,12 @@ export function optionsOf(field) {
 }
 
 function toRawValue(field, value) {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) {
+    // Pré-remplissage automatique : date et datetime → aujourd'hui/maintenant
+    if (field.type === 'date')     return toInputDate(new Date());
+    if (field.type === 'datetime') return toInputDateTime(new Date());
+    return '';
+  }
   switch (field.type) {
     case 'date': return toInputDate(value);
     case 'datetime': return toInputDateTime(value);
@@ -53,8 +59,9 @@ function toPayloadValue(field, raw) {
 }
 
 export function ResourceForm({ fields, initial = {}, onSubmit, onCancel, submitLabel = 'Enregistrer', submitting = false }) {
+  const { t } = useI18n();
   const values = {};
-  fields.forEach((f) => { values[f.name] = toRawValue(f, initial[f.name]); });
+  fields.forEach((f) => { values[f.name] = f.type === 'multiselect' ? (Array.isArray(initial[f.name]) ? initial[f.name] : []) : toRawValue(f, initial[f.name]); });
   const [state, setState] = useState(values);
   const [errors, setErrors] = useState({});
   const [asyncOptions, setAsyncOptions] = useState({});
@@ -76,21 +83,28 @@ export function ResourceForm({ fields, initial = {}, onSubmit, onCancel, submitL
       .finally(() => setAsyncLoading((prev) => ({ ...prev, [field.name]: false })));
   };
 
+  const toggleMulti = (field, value) => {
+    const current = state[field.name] || [];
+    setValue(field.name, current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
+  };
+
   const handleSubmit = (ev) => {
     ev.preventDefault();
     const nextErrors = {};
     fields.forEach((f) => {
       const raw = state[f.name];
-      if (f.required && (raw === '' || raw === null || raw === undefined)) nextErrors[f.name] = 'Ce champ est obligatoire.';
+      if (f.required && (raw === '' || raw === null || raw === undefined || (Array.isArray(raw) && !raw.length))) nextErrors[f.name] = 'Ce champ est obligatoire.';
     });
     if (Object.keys(nextErrors).length) { setErrors(nextErrors); return; }
     const payload = {};
-    fields.forEach((f) => { payload[f.name] = toPayloadValue(f, state[f.name]); });
+    fields.forEach((f) => {
+      payload[f.name] = f.type === 'multiselect' ? (state[f.name] || []) : toPayloadValue(f, state[f.name]);
+    });
     onSubmit(payload);
   };
 
   const renderField = (field) => {
-const error = errors[field.name];
+    const error = errors[field.name];
     const common = { id: `f-${field.name}`, name: field.name, disabled: field.readonly, required: field.required };
     const cls = field.full ? 'field-full' : '';
     const value = state[field.name] ?? '';
@@ -131,11 +145,42 @@ const error = errors[field.name];
           </Field>
         );
       }
+      case 'multiselect': {
+        // Options statiques (tableau) ou asynchrones (source HTTP)
+        const staticOpts = Array.isArray(field.options) ? field.options : null;
+        const asyncOpts  = staticOpts ? null : asyncOptions[field.name];
+        if (!staticOpts && !asyncOpts && !asyncLoading[field.name]) loadAsync(field);
+        const opts = staticOpts || asyncOpts;
+        const selected = state[field.name] || [];
+        return (
+          <Field key={field.name} label={field.label} required={field.required} error={error} hint={field.hint} className={cls}>
+            {!staticOpts && asyncLoading[field.name] && !asyncOpts && <span className="muted">{t('Chargement…')}</span>}
+            <div className="multiselect-list">
+              {(opts || []).map((o) => (
+                <label key={o.value} className="field-check multiselect-item">
+                  <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggleMulti(field, o.value)} />
+                  <span>{t(o.label)}</span>
+                </label>
+              ))}
+              {opts && !opts.length && <span className="muted">{t('Aucun choix disponible.')}</span>}
+            </div>
+            <span className="muted">{selected.length} {t('sélectionné(s)')}</span>
+          </Field>
+        );
+      }
       default:
         return (
           <Field key={field.name} label={field.label} required={field.required} error={error} hint={field.hint} className={cls}>
             <Input
-              type={field.type === 'email' ? 'email' : field.type === 'password' ? 'password' : field.type === 'number' ? 'number' : 'text'}
+              type={
+                field.type === 'email' ? 'email'
+                : field.type === 'password' ? 'password'
+                : field.type === 'number' ? 'number'
+                : field.type === 'date' ? 'date'
+                : field.type === 'datetime' ? 'datetime-local'
+                : field.type === 'time' ? 'time'
+                : 'text'
+              }
               placeholder={field.placeholder} min={field.min} max={field.max} step={field.step} {...common}
               value={value}
               onChange={(ev) => setValue(field.name, ev.target.value)} />
@@ -148,8 +193,8 @@ const error = errors[field.name];
     <form className="resource-form" onSubmit={handleSubmit} noValidate>
       <div className="form-grid">{fields.map(renderField)}</div>
       <div className="form-actions">
-        <Button type="submit" variant="primary" icon="Check" loading={submitting}>{submitLabel}</Button>
-        {onCancel && <Button variant="ghost" onClick={onCancel}>Annuler</Button>}
+        <Button type="submit" variant="primary" icon="Check" loading={submitting}>{t(submitLabel)}</Button>
+        {onCancel && <Button variant="ghost" onClick={onCancel}>{t('Annuler')}</Button>}
       </div>
     </form>
   );

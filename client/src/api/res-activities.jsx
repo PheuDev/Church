@@ -1,4 +1,4 @@
-// Activités & présences — configuration des ressources
+// Activités — configuration des ressources
 import { BadgeEnum } from '../components/ui.jsx';
 import { personLabel, name1, F } from './resdefs.js';
 import { fmtDate } from '../lib/format.js';
@@ -17,6 +17,7 @@ export const ACTIVITIES_R = {
       { title: 'Type', render: (r) => name1(r.type) },
       { title: 'Date', render: (r) => fmtDate(r.activityDate) },
       { title: 'Heures', render: (r) => (r.startTime ? `${r.startTime}–${r.endTime || '?'}` : '—') },
+      { title: 'Présents', render: (r) => (r.attendanceStats?.[0] ? <b>{r.attendanceStats[0].presentCount}</b> : '—') },
       { title: 'Statut', render: (r) => <BadgeEnum group="ActivityStatus" value={r.status} /> },
       { title: 'Responsable', render: (r) => (r.responsible ? `${r.responsible.firstName} ${r.responsible.lastName}` : '—') },
     ],
@@ -45,30 +46,5 @@ export const ACTIVITIES_R = {
         )}
       </>
     ),
-  },
-
-  'attendance-records': {
-    path: '/attendance-records',
-    label: 'Présences nominatives',
-    singular: 'Présence',
-    icon: 'ListChecks',
-    columns: [
-      { title: 'Activité', render: (r) => (r.activity ? `${r.activity.title} (${fmtDate(r.activity.activityDate)})` : '—') },
-      { title: 'Personne', render: (r) => (r.person ? `${r.person.firstName} ${r.person.lastName}` : '—') },
-      { title: 'Statut', render: (r) => <BadgeEnum group="AttendanceStatus" value={r.status} /> },
-      { title: 'Arrivée', render: (r) => fmtDate(r.cameAt) },
-      { title: 'Note', render: (r) => r.note || '—' },
-    ],
-    filters: [
-      { name: 'activityId', label: 'Activité', source: '/activities', optionLabel: (r) => r.title },
-      { name: 'status', label: 'Statut', options: 'AttendanceStatus' },
-    ],
-    form: [
-      { name: 'activityId', label: 'Activité', type: 'async', source: '/activities', optionLabel: (r) => r.title, required: true },
-      { ...F.person({ required: true }) },
-      { name: 'status', label: 'Statut', type: 'select', options: 'AttendanceStatus' },
-      { name: 'cameAt', label: 'Heure d’arrivée', type: 'datetime' },
-      { name: 'note', label: 'Note', type: 'textarea', full: true },
-    ],
   },
 };

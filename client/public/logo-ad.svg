@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" fill="none">
+  <!-- Fond bouclier -->
+  <path d="M110 10 L200 10 L200 140 Q200 200 110 215 Q20 200 20 140 L20 10 Z" fill="#fff" stroke="#1d3dbf" stroke-width="5"/>
+  <!-- Bandeau haut -->
+  <rect x="20" y="10" width="180" height="36" rx="0" fill="#fff" stroke="#1d3dbf" stroke-width="4"/>
+  <text x="110" y="35" font-family="Arial,sans-serif" font-weight="900" font-size="15" fill="#1d3dbf" text-anchor="middle" letter-spacing="1">ASSEMBLÉES DE DIEU</text>
+  <!-- Livre (Tout l'Évangile) -->
+  <rect x="28" y="56" width="54" height="44" rx="3" fill="#fff" stroke="#1d3dbf" stroke-width="2.5"/>
+  <!-- Reliure livre -->
+  <line x1="55" y1="56" x2="55" y2="100" stroke="#1d3dbf" stroke-width="2"/>
+  <!-- Pages ouvertes courbe gauche -->
+  <path d="M30 98 Q42 90 55 98" fill="none" stroke="#1d3dbf" stroke-width="1.5"/>
+  <path d="M55 98 Q68 90 80 98" fill="none" stroke="#1d3dbf" stroke-width="1.5"/>
+  <text x="55" y="73" font-family="Arial,sans-serif" font-size="7.5" fill="#1d3dbf" text-anchor="middle" font-style="italic">Tout l'</text>
+  <text x="55" y="85" font-family="Arial,sans-serif" font-size="7.5" fill="#1d3dbf" text-anchor="middle" font-style="italic">Évangile</text>
+  <!-- Lettre A stylisée -->
+  <path d="M90 170 L115 55 L140 170" stroke="#1d3dbf" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M98 135 L132 135" stroke="#1d3dbf" stroke-width="7" stroke-linecap="round"/>
+  <!-- Lettre D stylisée -->
+  <path d="M145 60 L145 170 Q195 170 200 115 Q205 60 145 60Z" fill="#1d3dbf"/>
+  <path d="M156 78 L156 152 Q185 152 188 115 Q191 78 156 78Z" fill="#fff"/>
+  <!-- Arc décoratif bas -->
+  <path d="M45 185 Q110 210 175 185" stroke="#1d3dbf" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>

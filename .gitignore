@@ -1,39 +1,72 @@
-# Dependencies
+# ============================================================
+# AD Gestion — .gitignore
+# ============================================================
+
+# Dépendances
 node_modules/
+**/node_modules/
 
 # Builds
 dist/
 build/
 *.tsbuildinfo
+client/dist/
 
-# Environment
+# Variables d'environnement — NE JAMAIS committer les .env réels
 .env
 .env.local
 .env.production
+.env.staging
+# Garder les exemples en dépôt
 !.env.example
+!server/.env.example
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 logs/
 server/storage/logs/
 
-# Prisma
+# Prisma — base SQLite locale si utilisée
 server/prisma/*.db
-server/prisma/migrations/dev/
+server/prisma/*.db-journal
+# Migrations générées en dev (uniquement si shadow DB indisponible)
+# server/prisma/migrations/ → à committer pour la prod !
 
-# Uploads
+# Uploads utilisateurs — ne jamais versionner les fichiers uploadés
 server/storage/uploads/
+!server/storage/uploads/.gitkeep
 
-# OS
+# Certificats et clés
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Système
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# IDE
+# Éditeurs
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Reports
+# Tests
 server/test-results/
 coverage/
+.nyc_output/
+
+# Local inspection helpers and build notes
+scan*.ps1
+client/build.txt
+
+# Prisma client généré (régénéré au déploiement via postinstall)
+# node_modules/.prisma/ — déjà couvert par node_modules/

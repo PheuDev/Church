@@ -4,6 +4,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Search, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { EmptyState, Spinner, cn } from './ui.jsx';
+import { useI18n } from '../lib/i18n.jsx';
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -29,6 +30,7 @@ export function DataTable({
   order,            // 'asc' | 'desc'
   onSortChange,     // (field) => void — tri serveur
 }) {
+  const { t } = useI18n();
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   const sortableOf = (col) => Boolean(
@@ -36,12 +38,12 @@ export function DataTable({
   );
 
   const headContent = (col) => {
-    if (!sortableOf(col)) return col.title;
+    if (!sortableOf(col)) return t(col.title);
     const active = sort === col.sortKey;
     const Ico = !active ? ChevronsUpDown : (order === 'asc' ? ChevronUp : ChevronDown);
     return (
       <button type="button" className="th-sortable" onClick={() => onSortChange(col.sortKey)}>
-        {col.title}
+        {t(col.title)}
         <Ico size={13} className="sort-indicator" aria-hidden="true" />
       </button>
     );
@@ -62,10 +64,10 @@ export function DataTable({
             <input
               className="input"
               type="search"
-              aria-label="Rechercher"
+              aria-label={t('Rechercher')}
               value={search || ''}
               onChange={(ev) => onSearch(ev.target.value)}
-              placeholder={searchPlaceholder}
+              placeholder={searchPlaceholder ? t(searchPlaceholder) : t('Rechercher…')}
             />
           </div>
         ) : <div />}
@@ -75,7 +77,7 @@ export function DataTable({
       {loading ? (
         <Spinner />
       ) : rows.length === 0 ? (
-        <EmptyState title={emptyTitle || 'Aucun résultat'} message={emptyMessage} />
+        <EmptyState title={emptyTitle || t('Aucun résultat')} message={emptyMessage} />
       ) : (
         <table className="data-table">
           <thead>
@@ -104,7 +106,7 @@ export function DataTable({
                   <td
                     key={col.key || col.title}
                     className={cn('td-numeric', col.align === 'right')}
-                    data-label={col.title}
+                    data-label={t(col.title)}
                   >
                     {col.render ? col.render(row) : String(row[col.key] ?? '—')}
                   </td>
@@ -122,12 +124,12 @@ export function DataTable({
         <div className="page-info" style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <span>
             {total > 0
-              ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} sur ${total}`
-              : 'Aucun élément'}
+              ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} ${t('sur')} ${total}`
+              : t('Aucun élément')}
           </span>
           {onPageSizeChange && (
             <label className="page-size">
-              Par page
+              {t('Par page')}
               <select value={pageSize} onChange={(ev) => onPageSizeChange(Number(ev.target.value))}>
                 {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
@@ -138,17 +140,17 @@ export function DataTable({
           <button
             type="button"
             className="btn-ghost btn-sm"
-            aria-label="Page précédente"
+            aria-label={t('Page précédente')}
             disabled={page <= 1}
             onClick={() => onPageChange?.(page - 1)}
           >
             <ChevronLeft size={16} />
           </button>
-          <span>Page ${page} / ${pageCount}</span>
+          <span>{t('Page')} {page} / {pageCount}</span>
           <button
             type="button"
             className="btn-ghost btn-sm"
-            aria-label="Page suivante"
+            aria-label={t('Page suivante')}
             disabled={page >= pageCount}
             onClick={() => onPageChange?.(page + 1)}
           >

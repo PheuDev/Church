@@ -5,15 +5,13 @@ import { z } from 'zod';
 import prisma from '../lib/prisma.js';
 import { crudRouter } from '../lib/router.js';
 import { asyncHandler } from '../lib/http.js';
-import { requireRole } from '../lib/auth.js';
+import { access } from '../lib/permissions.js';
 
 const personInclude = {
-  family: { select: { id: true, name: true } },
   departmentMemberships: {
     where: { isActive: true },
     include: { department: { select: { id: true, name: true, type: true } } },
   },
-  headOfFamilies: { select: { id: true, name: true } },
   candidateRecords: { select: { id: true, status: true, enrolledAt: true } },
   baptisms: { select: { id: true, baptismDate: true, location: true } },
   certificates: { select: { id: true, type: true, issuedAt: true } },
@@ -39,7 +37,6 @@ const personShape = {
   maritalStatus: maritalEnum.nullable().optional(),
   profession: z.string().max(200).nullable().optional(),
   status: statusEnum.default('ATTENDEE').optional(),
-  familyId: z.string().nullable().optional(),
   memberSince: z.coerce.date().nullable().optional(),
   membershipNumber: z.string().max(60).nullable().optional(),
   photoKey: z.string().nullable().optional(),
@@ -53,14 +50,14 @@ export function personRoutes() {
     label: 'Personne',
     include: personInclude,
     searchFields: ['firstName', 'lastName', 'phone', 'membershipNumber'],
-    filters: ['status', 'familyId', 'gender'],
+    filters: ['status', 'gender'],
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     createSchema: z.object(personShape).strict(),
     updateSchema: z.object(personShape).strict().partial(),
     csvColumns: ['lastName', 'firstName', 'gender', 'status', 'phone', 'email', 'membershipNumber', 'address', 'profession'],
     transform: (router) => {
       // Statistiques de l'annuaire (enregistrées avant /:id)
-      router.get('/stats', requireRole('ADMIN', 'PASTOR', 'SECRETARY', 'TREASURER', 'VIEWER'), asyncHandler(async (req, res) => {
+      router.get('/stats', access('read', ['ADMIN', 'PASTOR', 'SECRETARY', 'TREASURER', 'VIEWER']), asyncHandler(async (req, res) => {
         const where = { churchId: req.churchId, isActive: true };
         const byStatus = await prisma.person.groupBy({ by: ['status'], where, _count: { _all: true } });
         const byGender = await prisma.person.groupBy({ by: ['gender'], where, _count: { _all: true } });

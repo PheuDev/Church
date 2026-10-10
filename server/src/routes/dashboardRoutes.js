@@ -50,15 +50,21 @@ export function dashboardRoutes() {
       by: ['status'], where: { churchId }, _count: { _all: true },
     });
 
-    const [families, departments, activeContributions, openCommitments] = await Promise.all([
-      prisma.family.count({ where: { churchId } }),
+    const [departments, activeEngagements] = await Promise.all([
       prisma.department.count({ where: { churchId, isActive: true } }),
-      prisma.contribution.count({ where: { churchId, status: 'ACTIVE' } }),
-      prisma.commitment.count({ where: { churchId, status: { in: ['OPEN', 'PARTIAL'] } } }),
+      prisma.engagement.count({ where: { churchId, status: { in: ['OPEN', 'PARTIAL'] } } }),
     ]);
 
     const recentRevenues = await prisma.revenue.findMany({
       where: { churchId }, orderBy: { receivedAt: 'desc' }, take: 5,
+    });
+
+    // Stats école du dimanche — 8 dernières séances par classe
+    const ssLastSessions = await prisma.sundaySchoolSession.findMany({
+      where: { churchId },
+      orderBy: { sessionDate: 'desc' },
+      take: 40,
+      include: { class: { select: { id: true, name: true } } },
     });
 
     res.json({
@@ -66,7 +72,6 @@ export function dashboardRoutes() {
         total: personCounts[0], members: personCounts[1], candidates: personCounts[2],
         male: personCounts[3], female: personCounts[4],
       },
-      families,
       departments,
       activities: { upcoming: upcomingActivities, totalDone: recentActivities },
       finance: {
@@ -78,8 +83,8 @@ export function dashboardRoutes() {
         lastRevenues: recentRevenues,
       },
       baptisms: { candidateFlow },
-      contributions: { active: activeContributions },
-      commitments: { open: openCommitments },
+      engagements: { open: activeEngagements },
+      sundaySchool: { lastSessions: ssLastSessions },
     });
   }));
 

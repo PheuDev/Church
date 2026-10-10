@@ -26,7 +26,7 @@ export function projectRoutes() {
     orderBy: { createdAt: 'desc' },
     include: {
       responsible: { select: { id: true, firstName: true, lastName: true } },
-      _count: { select: { commitments: true, documents: true } },
+      _count: { select: { engagements: true, documents: true } },
     },
     createSchema: z.object(projectShape).strict(),
     updateSchema: z.object(projectShape).strict().partial(),

@@ -5,13 +5,18 @@
   "description": "API backend — AD Gestion",
   "type": "module",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:setup": "prisma generate && prisma migrate deploy && node prisma/seed.js",
     "db:seed": "node prisma/seed.js",
     "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://church_app:church_dev_2026@localhost:5432/church_test_db node --test --test-concurrency=1 test/*.test.js"
   },

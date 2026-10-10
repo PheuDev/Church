@@ -52,7 +52,7 @@ export const MISC2_R = {
       { title: 'Adresse IP', render: (r) => r.ipAddress || '—' },
     ],
     filters: [
-      { name: 'entity', label: 'Entité', options: ['person', 'user', 'family', 'department', 'activity', 'activityType', 'sundaySchoolClass', 'sundaySchoolSession', 'formationProgram', 'formationSession', 'lesson', 'bibleVerse', 'sessionLesson', 'baptismCandidate', 'evaluation', 'baptism', 'certificate', 'account', 'fund', 'financialCategory', 'revenue', 'expense', 'contribution', 'contributionPayment', 'commitment', 'commitmentPayment', 'churchEvent', 'eventParticipant', 'project', 'document', 'churchSetting', 'nationalOffice', 'aduSession', 'adminDepartment', 'locality'].map((v) => ({ value: v, label: v })) },
+      { name: 'entity', label: 'Entité', options: ['person', 'user', 'department', 'departmentMember', 'activity', 'activityType', 'attendanceStat', 'sundaySchoolClass', 'sundaySchoolSession', 'formationProgram', 'formationSession', 'lesson', 'sessionLesson', 'baptismCandidate', 'evaluation', 'baptism', 'certificate', 'account', 'financialCategory', 'revenue', 'expense', 'engagement', 'engagementPayment', 'churchEvent', 'eventParticipant', 'project', 'document', 'churchSetting', 'church'].map((v) => ({ value: v, label: v })) },
       { name: 'action', label: 'Action', options: ['create', 'update', 'delete', 'user.change_password', 'activity.attendance.bulk', 'document.create', 'document.delete', 'churchSetting.upsert'].map((v) => ({ value: v, label: v })) },
     ],
   },

@@ -11,11 +11,14 @@ import { GenericResourcePage } from './components/GenericResourcePage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { ChangePasswordPage } from './pages/ChangePasswordPage.jsx';
 import { PersonPage } from './pages/PersonPage.jsx';
+import { BaptismCandidatePage } from './pages/BaptismCandidatePage.jsx';
 import { AttendancePage } from './pages/AttendancePage.jsx';
 import { DocumentsPage } from './pages/DocumentsPage.jsx';
 import { ChurchPage } from './pages/ChurchPage.jsx';
 import { PageHeader, Alert, Spinner } from './components/ui.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import { I18nProvider, useI18n } from './lib/i18n.jsx';
+import { PermissionsProvider } from './api/permissions.jsx';
 
 // Chargés à la demande : Recharts (graphiques) ne pèse plus dans le bundle
 // initial, utilisé uniquement par le tableau de bord et la finance.
@@ -24,10 +27,12 @@ const FinancePage = lazy(() => import('./pages/FinancePage.jsx').then((m) => ({ 
 
 const SPECIFIC = {
   persons: () => <PersonPage />,
+  'baptisms/candidates': () => <BaptismCandidatePage />,
 };
 
 function ProtectedRoutes() {
   const { session } = useAuth();
+  const { t } = useI18n();
   const location = useLocation();
   if (!session) return <Navigate to="/login" replace />;
   if (session.user.mustChangePassword && location.pathname !== '/change-password') {
@@ -37,7 +42,7 @@ function ProtectedRoutes() {
   return (
     <AppLayout>
       <ErrorBoundary resetKey={location.pathname}>
-        <Suspense fallback={<div className="page"><Spinner label="Chargement…" /></div>}>
+        <Suspense fallback={<div className="page"><Spinner label={t('Chargement…')} /></div>}>
         <Routes>
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/" element={<DashboardPage />} />
@@ -61,10 +66,11 @@ function ProtectedRoutes() {
 }
 
 function NotFoundPage() {
+  const { t } = useI18n();
   return (
     <div className="page">
-      <PageHeader title="Page introuvable" />
-      <Alert tone="warning">La page demandée n'existe pas ou vous n'y avez pas accès.</Alert>
+      <PageHeader title={t('Page introuvable')} />
+      <Alert tone="warning">{t("La page demandée n'existe pas ou vous n'y avez pas accès.")}</Alert>
     </div>
   );
 }
@@ -72,13 +78,17 @@ function NotFoundPage() {
 export function App() {
   const location = useLocation();
   return (
+    <I18nProvider>
     <ToastProvider>
-    <ErrorBoundary resetKey={`root:${location.pathname}`}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<ProtectedRoutes />} />
-      </Routes>
-    </ErrorBoundary>
+      <PermissionsProvider>
+      <ErrorBoundary resetKey={`root:${location.pathname}`}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<ProtectedRoutes />} />
+        </Routes>
+      </ErrorBoundary>
+      </PermissionsProvider>
     </ToastProvider>
+    </I18nProvider>
   );
 }

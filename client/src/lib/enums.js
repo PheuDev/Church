@@ -55,13 +55,6 @@ export const ENUMS = {
     DONE: e('Terminée', 'green'),
     CANCELLED: e('Annulée', 'red'),
   },
-  AttendanceStatus: {
-    PRESENT: e('Présent', 'green'),
-    ABSENT: e('Absent', 'red'),
-    EXCUSED: e('Excusé', 'amber'),
-    LATE: e('En retard', 'blue'),
-    VISITOR: e('Visiteur', 'purple'),
-  },
   FormationStatus: {
     PLANNED: e('Planifiée', 'blue'),
     ONGOING: e('En cours', 'amber'),
@@ -120,16 +113,8 @@ export const ENUMS = {
     SEMI_ANNUAL: e('Semestrielle'),
     ANNUAL: e('Annuelle'),
   },
-  ContributionStatus: {
-    ACTIVE: e('Active', 'green'),
-    INACTIVE: e('Inactive', 'gray'),
-  },
-  CommitmentKind: {
-    FINANCIAL: e('Financier', 'green'),
-    IN_KIND: e('En nature', 'amber'),
-  },
-  CommitmentStatus: {
-    OPEN: e('Ouvert', 'blue'),
+  EngagementStatus: {
+    OPEN: e('En cours', 'blue'),
     PARTIAL: e('Partiel', 'amber'),
     FULFILLED: e('Honoré', 'green'),
     CANCELLED: e('Annulé', 'red'),

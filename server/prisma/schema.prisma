@@ -77,15 +77,6 @@ enum ActivityStatus {
   CANCELLED
 }
 
-// Statut d'une présence nominative
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  EXCUSED
-  LATE
-  VISITOR
-}
-
 // Type de séance (Leçon ≠ Séance)
 enum SeanceType {
   NEW_LESSON // Nouvelle leçon
@@ -156,21 +147,11 @@ enum Periodicity {
   ANNUAL
 }
 
-enum ContributionStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum CommitmentKind {
-  FINANCIAL
-  IN_KIND
-}
-
-enum CommitmentStatus {
-  OPEN
-  PARTIAL // Partiellement honorée
-  FULFILLED // Honorée
-  CANCELLED
+enum EngagementStatus {
+  OPEN // En cours
+  PARTIAL // Partiellement honoré
+  FULFILLED // Honoré
+  CANCELLED // Annulé / inactif
 }
 
 enum EventType {
@@ -208,54 +189,6 @@ enum CertificateType {
 }
 
 // ============================================================
-// CONTEXTE ADMINISTRATIF (informations simples en V1)
-// ============================================================
-
-model NationalOffice {
-  id        String   @id @default(cuid())
-  name      String
-  code      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  sessions AduSession[]
-}
-
-model AduSession {
-  id        String          @id @default(cuid())
-  name      String
-  code      String          @unique
-  officeId  String
-  office    NationalOffice  @relation(fields: [officeId], references: [id], onDelete: Restrict)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-
-  departments AdminDepartment[]
-}
-
-model AdminDepartment {
-  id        String         @id @default(cuid())
-  name      String
-  sessionId String
-  session   AduSession     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  localities Locality[]
-}
-
-model Locality {
-  id           String            @id @default(cuid())
-  name         String
-  departmentId String?
-  department   AdminDepartment?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  churches Church[]
-}
-
-// ============================================================
 // ÉGLISE (entité réellement gérée)
 // ============================================================
 
@@ -264,8 +197,6 @@ model Church {
   name        String   // Nom officiel
   shortName   String?  // Nom court / sigle
   code        String   @unique // Code interne
-  localityId  String?
-  locality    Locality? @relation(fields: [localityId], references: [id], onDelete: SetNull)
   address     String?
   city        String?
   phone       String?
@@ -281,36 +212,30 @@ model Church {
   settings      ChurchSetting[]
   users         User[]
   persons       Person[]
-  families      Family[]
   departments   Department[]
-  deptStats     DepartmentStat[]
   departmentMembers DepartmentMember[]
   activityTypes ActivityType[]
   activities    Activity[]
-  attendance    AttendanceRecord[]
   attendanceStats AttendanceStat[]
   ssClasses     SundaySchoolClass[]
   ssSessions    SundaySchoolSession[]
-  ssParticipants SundaySchoolParticipant[]
+  sundayServices SundayService[]
+  baptismSessions BaptismSession[]
   programs      FormationProgram[]
   formationSessions FormationSession[]
   lessons       Lesson[]
-  verses        BibleVerse[]
-  lessonVerses  LessonVerse[]
   sessionLessons SessionLesson[]
   candidates    BaptismCandidate[]
+  candidateAttendances CandidateAttendance[]
   evaluations   Evaluation[]
   baptisms      Baptism[]
   certificates  Certificate[]
   accounts      Account[]
-  funds         Fund[]
   finCategories FinancialCategory[]
   revenues      Revenue[]
   expenses      Expense[]
-  contributions Contribution[]
-  contributionPayments ContributionPayment[]
-  commitments   Commitment[]
-  commitmentPayments CommitmentPayment[]
+  engagements   Engagement[]
+  engagementPayments EngagementPayment[]
   events        ChurchEvent[]
   eventParticipants EventParticipant[]
   projects      Project[]
@@ -357,15 +282,14 @@ model User {
   createdRevenues Revenue[]       @relation("RevenueCreatedBy")
   createdExpenses Expense[]       @relation("ExpenseCreatedBy")
   createdDocs     Document[]      @relation("DocumentCreatedBy")
-  receivedContributionPayments ContributionPayment[] @relation("PaymentReceivedBy")
-  receivedCommitmentPayments    CommitmentPayment[]  @relation("CommitmentPaymentReceivedBy")
+  receivedEngagementPayments EngagementPayment[] @relation("PaymentReceivedBy")
 
   @@unique([churchId, email])
   @@index([churchId])
 }
 
 // ============================================================
-// PERSONNES & FAMILLES
+// PERSONNES
 // ============================================================
 
 model Person {
@@ -384,8 +308,6 @@ model Person {
   maritalStatus MaritalStatus?
   profession    String?
   status        PersonStatus  @default(ATTENDEE)
-  familyId      String?
-  family        Family?       @relation("FamilyMembers", fields: [familyId], references: [id], onDelete: SetNull)
   memberSince   DateTime?
   membershipNumber String?
   photoKey      String?
@@ -395,12 +317,9 @@ model Person {
   updatedAt     DateTime      @updatedAt
 
   departmentMemberships DepartmentMember[]
-  attendanceRecords     AttendanceRecord[]
-  ssParticipants        SundaySchoolParticipant[]
   candidateRecords      BaptismCandidate[]
   baptisms              Baptism[]
   certificates          Certificate[]
-  headOfFamilies        Family[]      @relation("FamilyHead")
   ledDepartments        Department[]  @relation("DepartmentLeader")
   ledActivities         Activity[]    @relation("ActivityResponsible")
   taughtSsSessions      SundaySchoolSession[] @relation("SSSessionTeacher")
@@ -411,38 +330,21 @@ model Person {
   eventRoles            EventParticipant[]
   ledEvents             ChurchEvent[]         @relation("EventResponsible")
   ledProjects           Project[]             @relation("ProjectResponsible")
-  commitments           Commitment[]
-  paidContributions     ContributionPayment[] @relation("ContributionPersonPaid")
-  sponsoredCandidates   BaptismCandidate[]    @relation("BaptismSponsor")
+  engagements           Engagement[]          @relation("EngagementPerson")
+  engagementPayments    EngagementPayment[]   @relation("EngagementPersonPaid")
   evaluationsGiven      Evaluation[]          @relation("EvaluationEvaluator")
   officiatedBaptisms    Baptism[]             @relation("BaptismOfficiant")
   documents             Document[]            @relation("DocumentPerson")
+  sundayServicesPreached SundayService[]      @relation("ServicePreacher")
+  sundayServicesMC       SundayService[]      @relation("ServiceMC")
 
   @@index([churchId])
   @@index([lastName, firstName])
   @@index([phone])
 }
 
-model Family {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name        String
-  headPersonId String?
-  head        Person?  @relation("FamilyHead", fields: [headPersonId], references: [id], onDelete: SetNull)
-  address     String?
-  phone       String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  members Person[] @relation("FamilyMembers")
-
-  @@index([churchId])
-}
-
 // ============================================================
-// DÉPARTEMENTS INTERNES (+ effectifs quantitatifs)
+// DÉPARTEMENTS INTERNES
 // ============================================================
 
 model Department {
@@ -456,12 +358,15 @@ model Department {
   color            String?
   description      String?
   isActive         Boolean        @default(true)
+  // Effectif saisi manuellement (remplace le comptage via DepartmentMember)
+  headcount        Int?           // Effectif total renseigné
+  headcountMale    Int?           // Dont hommes
+  headcountFemale  Int?           // Dont femmes
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
   members      DepartmentMember[]
-  stats        DepartmentStat[]
-  contributions Contribution[]
+  engagements  Engagement[]
 
   @@index([churchId])
   @@unique([churchId, name])
@@ -484,25 +389,6 @@ model DepartmentMember {
 
   @@unique([departmentId, personId])
   @@index([churchId])
-}
-
-// Effectif quantitatif d'un département pour une période donnée
-model DepartmentStat {
-  id            String   @id @default(cuid())
-  churchId      String
-  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  departmentId  String
-  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  periodStart   DateTime
-  periodEnd     DateTime
-  effectiveCount Int
-  maleCount     Int?
-  femaleCount   Int?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([churchId, departmentId, periodStart])
 }
 
 // ============================================================
@@ -546,33 +432,13 @@ model Activity {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  attendanceRecords AttendanceRecord[]
   attendanceStats   AttendanceStat[]
 
   @@index([churchId, activityDate])
   @@index([churchId, typeId])
 }
 
-// Presence nominative
-model AttendanceRecord {
-  id         String           @id @default(cuid())
-  churchId   String
-  church     Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  activityId String
-  activity   Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  personId   String
-  person     Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
-  status     AttendanceStatus @default(PRESENT)
-  cameAt     DateTime?
-  note       String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-
-  @@unique([activityId, personId])
-  @@index([churchId, personId])
-}
-
-// Statistiques de presence (mode quantitatif)
+// Présences — mode quantitatif (compteurs saisis + observations)
 model AttendanceStat {
   id            String   @id @default(cuid())
   churchId      String
@@ -584,11 +450,6 @@ model AttendanceStat {
   excusedCount  Int      @default(0)
   lateCount     Int      @default(0)
   visitorCount  Int      @default(0)
-  childCount    Int      @default(0)
-  adultCount    Int      @default(0)
-  maleCount     Int      @default(0)
-  femaleCount   Int      @default(0)
-  totalCount    Int      @default(0)
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -637,40 +498,66 @@ model SundaySchoolSession {
   class       SundaySchoolClass    @relation("SSSessionClass", fields: [classId], references: [id], onDelete: Cascade)
   title       String
   sessionDate DateTime             @db.Date
-  startTime   String?
-  endTime     String?
   teacherId   String?
   teacher     Person?              @relation("SSSessionTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
   lessonTopic String?
   notes       String?
-  status      ActivityStatus       @default(PLANNED)
+  status      ActivityStatus       @default(DONE)
+  // Effectif & suivi
+  presentCount Int     @default(0)
+  absentCount  Int     @default(0)
+  bibleCount   Int     @default(0)   // Bibles apportées
+  offering     Decimal @default(0)   // Offrande de la classe
+  attendanceNotes String?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
-
-  participants SundaySchoolParticipant[]
 
   @@index([churchId, sessionDate])
   @@index([churchId, classId])
 }
 
-model SundaySchoolParticipant {
-  id        String               @id @default(cuid())
-  churchId  String
-  church    Church               @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  sessionId String
-  session   SundaySchoolSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  personId  String
-  person    Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
-  status    AttendanceStatus     @default(PRESENT)
-  note      String?
-  createdAt DateTime             @default(now())
+// Culte du dimanche — service principal (offrandes, MC, prédicateur)
+model SundayService {
+  id             String    @id @default(cuid())
+  churchId       String
+  church         Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  serviceDate    DateTime  @db.Date
+  mcPersonId     String?
+  mc             Person?   @relation("ServiceMC", fields: [mcPersonId], references: [id], onDelete: SetNull)
+  preacherId     String?
+  preacher       Person?   @relation("ServicePreacher", fields: [preacherId], references: [id], onDelete: SetNull)
+  theme          String?
+  offering       Decimal   @default(0)
+  specialOffering Decimal  @default(0)
+  eventId        String?
+  event          ChurchEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  @@unique([sessionId, personId])
-  @@index([churchId, personId])
+  @@index([churchId, serviceDate])
+}
+
+// Session de baptême (promotion / cohorte)
+model BaptismSession {
+  id          String    @id @default(cuid())
+  churchId    String
+  church      Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name        String    // ex: "Juin 2026"
+  startDate   DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  status      ActivityStatus @default(ONGOING)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  candidates  BaptismCandidate[]
+
+  @@index([churchId])
 }
 
 // ============================================================
-// FORMATIONS (programmes, sessions, leçons, versets)
+// FORMATIONS (programmes, sessions, leçons)
 // ============================================================
 
 model FormationProgram {
@@ -712,7 +599,6 @@ model FormationSession {
   updatedAt     DateTime         @updatedAt
 
   lessonPlans SessionLesson[]
-  candidates  BaptismCandidate[]
 
   @@index([churchId, programId])
 }
@@ -728,45 +614,14 @@ model Lesson {
   objective    String?
   content      String?
   durationMin  Int?
+  verses       String?  // Références bibliques (ex: "Jean 3:16 ; Matthieu 28:19")
   notes        String?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  verses            LessonVerse[]
   sessionTeachings  SessionLesson[]
 
   @@index([churchId, programId])
-}
-
-model BibleVerse {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  book      String
-  chapter   Int
-  verse     Int
-  text      String
-  version   String?  // ex: LSG, NEG, KJV
-  createdAt DateTime @default(now())
-
-  lessonLinks LessonVerse[]
-
-  @@unique([churchId, book, chapter, verse])
-  @@index([churchId, book])
-}
-
-model LessonVerse {
-  id       String      @id @default(cuid())
-  churchId String
-  church   Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  lessonId String
-  lesson   Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  verseId  String
-  verse    BibleVerse  @relation(fields: [verseId], references: [id], onDelete: Cascade)
-  position Int         @default(0)
-
-  @@unique([lessonId, verseId])
-  @@index([verseId])
 }
 
 model SessionLesson {
@@ -801,23 +656,54 @@ model BaptismCandidate {
   church             Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
   personId           String
   person             Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
-  sponsorId          String?
-  sponsor            Person?           @relation("BaptismSponsor", fields: [sponsorId], references: [id], onDelete: SetNull)
+  baptismSessionId   String?
+  baptismSession     BaptismSession?   @relation(fields: [baptismSessionId], references: [id], onDelete: SetNull)
   status             CandidateStatus   @default(ENROLLED)
-  enrolledAt         DateTime?
-  formationSessionId String?
-  formationSession   FormationSession? @relation(fields: [formationSessionId], references: [id], onDelete: SetNull)
+  enrolledAt         DateTime?         @db.Date
   requestedAt        DateTime?
   approvedAt         DateTime?
+  // Suivi pédagogique
+  subscriptionAmount Decimal?          // Montant de souscription
+  subscriptionPaid   Boolean           @default(false)
+  grade              Int?              // Note d'évaluation
+  gradingMode        GradingMode       @default(PERCENT)
+  evalPassed         Boolean?
+  evalComments       String?
+  evalDate           DateTime?         @db.Date
+  // Documents
+  hasIdPhoto         Boolean           @default(false)
+  idPhotoKey         String?           // Clé fichier photo d'identité (storage)
+  hasBirthCertificate Boolean          @default(false)
+  birthCertificateKey String?          // Clé fichier acte de naissance (storage)
   notes              String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
   evaluations Evaluation[]
   baptism     Baptism?
+  attendances CandidateAttendance[]
 
   @@index([churchId, status])
   @@index([churchId, personId])
+  @@index([churchId, baptismSessionId])
+}
+
+// Présence d'un candidat chaque dimanche pendant la session de baptême
+model CandidateAttendance {
+  id          String           @id @default(cuid())
+  churchId    String
+  church      Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   BaptismCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  attendDate  DateTime         @db.Date
+  present     Boolean          @default(false)
+  excused     Boolean          @default(false)  // permissionnaire
+  biblePresent Boolean         @default(false)
+  notes       String?
+  createdAt   DateTime         @default(now())
+
+  @@unique([candidateId, attendDate])
+  @@index([churchId, attendDate])
 }
 
 model Evaluation {
@@ -851,7 +737,6 @@ model Baptism {
   officiantId String?
   officiant   Person?              @relation("BaptismOfficiant", fields: [officiantId], references: [id], onDelete: SetNull)
   location    String?
-  sponsorName String?
   notes       String?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -884,7 +769,7 @@ model Certificate {
 }
 
 // ============================================================
-// FINANCES (comptes, fonds, recettes, dépenses, cotisations)
+// FINANCES (comptes, catégories, recettes, dépenses, engagements)
 // ============================================================
 
 model Account {
@@ -893,6 +778,7 @@ model Account {
   church         Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
   name           String
   type           AccountType @default(CASH)
+  purpose        Json?       // Tableau de RevenueSource associées à ce compte (ex: ["OFFER","QUETE"])
   accountNumber  String?
   bankName       String?
   phoneNumber    String?
@@ -905,22 +791,6 @@ model Account {
 
   revenues Revenue[]
   expenses Expense[]
-
-  @@index([churchId])
-  @@unique([churchId, name])
-}
-
-model Fund {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  revenues Revenue[]
 
   @@index([churchId])
   @@unique([churchId, name])
@@ -950,8 +820,6 @@ model Revenue {
   church        Church              @relation(fields: [churchId], references: [id], onDelete: Cascade)
   accountId     String?
   account       Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  fundId        String?
-  fund          Fund?               @relation(fields: [fundId], references: [id], onDelete: SetNull)
   categoryId    String?
   category      FinancialCategory?  @relation("RevenueCategory", fields: [categoryId], references: [id], onDelete: SetNull)
   source        RevenueSource       @default(OTHER)
@@ -971,7 +839,6 @@ model Revenue {
   @@index([churchId, receivedAt])
   @@index([churchId, source])
   @@index([churchId, accountId])
-  @@index([churchId, fundId])
 }
 
 model Expense {
@@ -998,37 +865,45 @@ model Expense {
   @@index([churchId, categoryId])
 }
 
-model Contribution {
+// Engagements : cotisations périodiques ET promesses de don (fusionnés)
+model Engagement {
   id           String              @id @default(cuid())
   churchId     String
   church       Church              @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  departmentId String?
+  personId     String?             // Engagement individuel (promesse d'une personne)
+  person       Person?             @relation("EngagementPerson", fields: [personId], references: [id], onDelete: Cascade)
+  departmentId String?             // Cotisation collective (département)
   department   Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  projectId    String?
+  project      Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   name         String
   description  String?
   amount       Decimal
-  periodicity  Periodicity         @default(ANNUAL)
+  periodicity  Periodicity         @default(ONE_TIME)
   periodStart  DateTime?
   periodEnd    DateTime?
   dueDate      DateTime?
-  status       ContributionStatus  @default(ACTIVE)
+  status       EngagementStatus    @default(OPEN)
+  notes        String?
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
-  payments ContributionPayment[]
+  payments EngagementPayment[]
 
-  @@index([churchId])
+  @@index([churchId, status])
+  @@index([churchId, personId])
   @@index([churchId, departmentId])
+  @@index([churchId, projectId])
 }
 
-model ContributionPayment {
+model EngagementPayment {
   id             String            @id @default(cuid())
   churchId       String
   church         Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  contributionId String
-  contribution   Contribution      @relation(fields: [contributionId], references: [id], onDelete: Cascade)
-  personId       String
-  person         Person            @relation("ContributionPersonPaid", fields: [personId], references: [id], onDelete: Cascade)
+  engagementId   String
+  engagement     Engagement        @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  personId       String?           // Bénéficiaire du paiement (ex: cotisant)
+  person         Person?           @relation("EngagementPersonPaid", fields: [personId], references: [id], onDelete: Cascade)
   amount         Decimal
   paymentMethod  PaymentMethod     @default(CASH)
   paidAt         DateTime
@@ -1039,50 +914,8 @@ model ContributionPayment {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  @@index([churchId, contributionId])
+  @@index([churchId, engagementId])
   @@index([churchId, personId])
-}
-
-model Commitment {
-  id          String           @id @default(cuid())
-  churchId    String
-  church      Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  personId    String
-  person      Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
-  projectId   String?
-  project     Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  kind        CommitmentKind   @default(FINANCIAL)
-  description String
-  amount      Decimal?
-  status      CommitmentStatus @default(OPEN)
-  startDate   DateTime?
-  dueDate     DateTime?
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  payments CommitmentPayment[]
-
-  @@index([churchId, personId])
-  @@index([churchId, projectId])
-}
-
-model CommitmentPayment {
-  id            String            @id @default(cuid())
-  churchId      String
-  church        Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  commitmentId  String
-  commitment    Commitment        @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
-  amount        Decimal
-  paymentMethod PaymentMethod     @default(CASH)
-  paidAt        DateTime
-  receivedById  String?
-  receivedBy    User?             @relation("CommitmentPaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
-  note          String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  @@index([churchId, commitmentId])
 }
 
 // ============================================================
@@ -1108,6 +941,7 @@ model ChurchEvent {
   updatedAt     DateTime       @updatedAt
 
   participants EventParticipant[]
+  sundayServices SundayService[]
 
   @@index([churchId, startDate])
   @@index([churchId, type])
@@ -1148,7 +982,7 @@ model Project {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  commitments Commitment[]
+  engagements Engagement[]
   documents   Document[]
 
   @@index([churchId, status])

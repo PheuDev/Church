@@ -4,86 +4,70 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Home, Building2, UserPlus, GraduationCap, ListTodo, CalendarDays, ListChecks,
-  BookOpen, Presentation, BookMarked, ListVideo, BookOpenText, Link2, UserRound, Droplets,
-  BadgeCheck, PieChart, Wallet, PiggyBank, Tags, Banknote, Receipt, HandCoins, Handshake, PartyPopper,
-  UserCheck, Hammer, UserCog, ScrollText, Landmark, CalendarRange, PanelsTopLeft, MapPin, FileText,
-  Church, LogOut, Menu, Cross,
+  LayoutDashboard, Users, Building2, GraduationCap, CalendarDays, ListTodo,
+  Presentation, UserRound, Droplets,
+  PieChart, Wallet, Tags, Banknote, Receipt, HandCoins, Handshake, PartyPopper,
+  Hammer, UserCog, ScrollText, FileText,
+  Church, LogOut, Menu, BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../auth/auth.jsx';
 import { list } from '../api/http.js';
 import { setNetworkStatusHandler } from '../api/client.js';
+import { can, useRolePermissions } from '../api/permissions.jsx';
+import { useI18n } from '../lib/i18n.jsx';
 import { Badge, Alert } from '../components/ui.jsx';
 
 const ICON = {
-  LayoutDashboard, Users, Home, Building2, UserPlus, GraduationCap, ListTodo,
-  CalendarDays, ListChecks, BookOpen, Presentation, BookMarked, ListVideo, BookOpenText,
-  Link2, UserRound, Droplets, BadgeCheck, PieChart, Wallet, PiggyBank, Tags, Banknote, Receipt,
-  HandCoins, Handshake, PartyPopper, UserCheck, Hammer, UserCog, ScrollText, Landmark, CalendarRange,
-  PanelsTopLeft, MapPin, FileText, Church,
+  LayoutDashboard, Users, Building2, GraduationCap,
+  CalendarDays, ListTodo, Presentation,
+  UserRound, Droplets, PieChart, Wallet, Tags, Banknote, Receipt,
+  HandCoins, Handshake, PartyPopper, Hammer, UserCog, ScrollText,
+  FileText, Church, BookOpen,
 };
 
 const NAV = [
   { section: 'Pilotage', items: [
-    { to: '/', label: 'Tableau de bord', icon: 'LayoutDashboard' },
+    { to: '/',        label: 'Tableau de bord',    icon: 'LayoutDashboard' },
     { to: '/finance', label: 'Synthèse financière', icon: 'PieChart' },
   ]},
   { section: 'Annuaire', items: [
     { to: '/persons', label: 'Annuaire', icon: 'Users', resource: 'persons' },
-    { to: '/families', label: 'Familles', icon: 'Home', resource: 'families' },
+  ]},
+  { section: 'Culte & activités', items: [
+    { to: '/sunday-services',  label: 'Cultes du dimanche',  icon: 'Church',        resource: 'sunday-services' },
+    { to: '/activities',       label: 'Activités',           icon: 'CalendarDays',  resource: 'activities' },
+    { to: '/activity-types',   label: "Types d'activités",   icon: 'ListTodo',      resource: 'activity-types' },
   ]},
   { section: 'Ministères', items: [
-    { to: '/departments', label: 'Départements', icon: 'Building2', resource: 'departments' },
-    { to: '/department-members', label: 'Membres de départements', icon: 'UserPlus', resource: 'department-members' },
-    { to: '/department-stats', label: 'Effectifs', icon: 'PieChart', resource: 'department-stats' },
-    { to: '/activity-types', label: "Types d'activités", icon: 'ListTodo', resource: 'activity-types' },
-    { to: '/activities', label: 'Activités', icon: 'CalendarDays', resource: 'activities' },
-    { to: '/attendance-records', label: 'Présences', icon: 'ListChecks', resource: 'attendance-records' },
-    { to: '/sunday-school/classes', label: 'École du dimanche', icon: 'GraduationCap', resource: 'sunday-school/classes' },
-    { to: '/sunday-school/sessions', label: 'Séances du dimanche', icon: 'Presentation', resource: 'sunday-school/sessions' },
+    { to: '/departments',      label: 'Départements',        icon: 'Building2',     resource: 'departments' },
+    { to: '/department-stats', label: 'Effectifs',           icon: 'PieChart',      resource: 'department-stats' },
   ]},
-  { section: 'Formations', items: [
-    { to: '/formations/programs', label: 'Programmes', icon: 'BookOpen', resource: 'formations/programs' },
-    { to: '/formations/sessions', label: 'Sessions', icon: 'Presentation', resource: 'formations/sessions' },
-    { to: '/formations/lessons', label: 'Leçons', icon: 'BookMarked', resource: 'formations/lessons' },
-    { to: '/formations/session-lessons', label: 'Séances enseignées', icon: 'ListVideo', resource: 'formations/session-lessons' },
-    { to: '/formations/verses', label: 'Versets', icon: 'BookOpenText', resource: 'formations/verses' },
+  { section: 'École du dimanche', items: [
+    { to: '/sunday-school/classes',  label: 'Classes',  icon: 'GraduationCap', resource: 'sunday-school/classes' },
+    { to: '/sunday-school/sessions', label: 'Séances',  icon: 'Presentation',  resource: 'sunday-school/sessions' },
   ]},
   { section: 'Baptêmes', items: [
-    { to: '/baptisms/candidates', label: 'Candidats', icon: 'UserRound', resource: 'baptisms/candidates' },
-    { to: '/baptisms/evaluations', label: 'Évaluations', icon: 'ListChecks', resource: 'baptisms/evaluations' },
-    { to: '/baptisms/baptisms', label: 'Baptêmes', icon: 'Droplets', resource: 'baptisms/baptisms' },
-    { to: '/baptisms/certificates', label: 'Certificats', icon: 'BadgeCheck', resource: 'baptisms/certificates' },
+    { to: '/baptisms/sessions',   label: 'Sessions',   icon: 'BookOpen',   resource: 'baptisms/sessions' },
+    { to: '/baptisms/candidates', label: 'Candidats',  icon: 'UserRound',  resource: 'baptisms/candidates' },
+    { to: '/baptisms/baptisms',   label: 'Actes',      icon: 'Droplets',   resource: 'baptisms/baptisms' },
   ]},
   { section: 'Finances', items: [
-    { to: '/finance/accounts', label: 'Comptes', icon: 'Wallet', resource: 'finance/accounts' },
-    { to: '/finance/funds', label: 'Fonds', icon: 'PiggyBank', resource: 'finance/funds' },
-    { to: '/finance/categories', label: 'Catégories', icon: 'Tags', resource: 'finance/categories' },
-    { to: '/finance/revenues', label: 'Recettes', icon: 'Banknote', resource: 'finance/revenues' },
-    { to: '/finance/expenses', label: 'Dépenses', icon: 'Receipt', resource: 'finance/expenses' },
-    { to: '/finance/contributions', label: 'Cotisations', icon: 'HandCoins', resource: 'finance/contributions' },
-    { to: '/finance/contribution-payments', label: 'Paiements de cotisations', icon: 'HandCoins', resource: 'finance/contribution-payments' },
-    { to: '/finance/commitments', label: 'Engagements', icon: 'Handshake', resource: 'finance/commitments' },
-    { to: '/finance/commitment-payments', label: "Paiements d'engagements", icon: 'HandCoins', resource: 'finance/commitment-payments' },
+    { to: '/finance/accounts',          label: 'Comptes',              icon: 'Wallet',   resource: 'finance/accounts' },
+    { to: '/finance/categories',        label: 'Catégories',           icon: 'Tags',     resource: 'finance/categories' },
+    { to: '/finance/revenues',          label: 'Recettes',             icon: 'Banknote', resource: 'finance/revenues' },
+    { to: '/finance/expenses',          label: 'Dépenses',             icon: 'Receipt',  resource: 'finance/expenses' },
+    { to: '/finance/engagements',       label: 'Engagements',          icon: 'Handshake',resource: 'finance/engagements' },
+    { to: '/finance/engagement-payments', label: "Paiements d'engag.", icon: 'HandCoins',resource: 'finance/engagement-payments' },
   ]},
   { section: 'Événements & projets', items: [
-    { to: '/events', label: 'Événements', icon: 'PartyPopper', resource: 'events' },
-    { to: '/event-participants', label: 'Participants', icon: 'UserCheck', resource: 'event-participants' },
-    { to: '/projects', label: 'Projets', icon: 'Hammer', resource: 'projects' },
-  ]},
-  { section: 'Documents', items: [
-    { to: '/documents', label: 'Documents', icon: 'FileText' },
+    { to: '/events',   label: 'Événements', icon: 'PartyPopper', resource: 'events' },
+    { to: '/projects', label: 'Projets',    icon: 'Hammer',      resource: 'projects' },
   ]},
   { section: 'Administration', roles: ['ADMIN', 'PASTOR', 'SECRETARY'], items: [
-    { to: '/users', label: 'Utilisateurs', icon: 'UserCog', resource: 'users', roles: ['ADMIN', 'PASTOR', 'SECRETARY'] },
-    { to: '/audit-logs', label: "Journal d'audit", icon: 'ScrollText', resource: 'audit-logs', roles: ['ADMIN', 'PASTOR'] },
-    { to: '/church', label: 'Église & paramètres', icon: 'Church', roles: ['ADMIN', 'PASTOR'] },
-  ]},
-  { section: 'Contexte AD', roles: ['ADMIN', 'PASTOR'], items: [
-    { to: '/admin/offices', label: 'Sièges nationaux', icon: 'Landmark', resource: 'admin/offices', roles: ['ADMIN', 'PASTOR'] },
-    { to: '/admin/sessions', label: "Sessions de l'Union", icon: 'CalendarRange', resource: 'admin/sessions', roles: ['ADMIN', 'PASTOR'] },
-    { to: '/admin/departments', label: 'Sections', icon: 'PanelsTopLeft', resource: 'admin/departments', roles: ['ADMIN', 'PASTOR'] },
-    { to: '/admin/localities', label: 'Localités', icon: 'MapPin', resource: 'admin/localities', roles: ['ADMIN', 'PASTOR'] },
+    { to: '/documents',  label: 'Documents',          icon: 'FileText',  roles: ['ADMIN', 'PASTOR', 'SECRETARY'] },
+    { to: '/users',      label: 'Utilisateurs',       icon: 'UserCog',   resource: 'users', roles: ['ADMIN', 'PASTOR', 'SECRETARY'] },
+    { to: '/audit-logs', label: "Journal d'audit",    icon: 'ScrollText',resource: 'audit-logs', roles: ['ADMIN', 'PASTOR'] },
+    { to: '/church',     label: 'Église & paramètres',icon: 'Church',    roles: ['ADMIN', 'PASTOR'] },
   ]},
 ];
 const ROLE_BADGE = { ADMIN: 'red', PASTOR: 'purple', SECRETARY: 'blue', TREASURER: 'amber', VIEWER: 'gray' };
@@ -91,6 +75,8 @@ const ROLE_LABEL = { ADMIN: 'Administrateur', PASTOR: 'Pasteur', SECRETARY: 'Sec
 
 export function AppLayout({ children }) {
   const { user, role, logout } = useAuth();
+  const { t, lang, setLang } = useI18n();
+  const matrix = useRolePermissions();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -123,10 +109,12 @@ export function AppLayout({ children }) {
       )}
       <aside className={open ? 'sidebar open' : 'sidebar'}>
         <div className="sidebar-brand">
-          <div className="brand-mark"><Cross size={20} /></div>
+          <div className="brand-mark">
+            <img src="/logo-ad.svg" alt="AD" style={{ width: 24, height: 24, objectFit: 'contain' }} />
+          </div>
           <div>
             <strong>AD Gestion</strong>
-            <span>{churchName || 'Église'}</span>
+            <span>{churchName || t('Église')}</span>
           </div>
         </div>
         <nav className="sidebar-nav">
@@ -134,9 +122,16 @@ export function AppLayout({ children }) {
             .filter((sec) => !sec.roles || sec.roles.includes(role))
             .map((sec) => (
               <div key={sec.section} className="nav-section">
-                <p>{sec.section}</p>
+                <p>{t(sec.section)}</p>
                 {sec.items
-                  .filter((item) => !item.roles || item.roles.includes(role))
+                  .filter((item) => {
+                    // Matrice enregistrée pour la ressource : elle prime.
+                    if (item.roles && !(item.resource && matrix?.[item.resource])) {
+                      if (!item.roles.includes(role)) return false;
+                    }
+                    if (item.resource) return can(role, item.resource, 'read', null);
+                    return true;
+                  })
                   .map((item) => {
                     const I = ICON[item.icon] || LayoutDashboard;
                     return (
@@ -147,7 +142,7 @@ export function AppLayout({ children }) {
                         className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                       >
                         <I size={17} />
-                        <span>{item.label}</span>
+                        <span>{t(item.label)}</span>
                       </NavLink>
                     );
                   })}
@@ -157,7 +152,7 @@ export function AppLayout({ children }) {
         <div className="sidebar-footer">
           <button type="button" className="nav-link" onClick={() => { logout(); navigate('/login'); }}>
             <LogOut size={17} />
-            <span>Se déconnecter</span>
+            <span>{t('Se déconnecter')}</span>
           </button>
         </div>
       </aside>
@@ -174,18 +169,32 @@ export function AppLayout({ children }) {
             <Menu size={20} />
           </button>
           <div className="topbar-spacer" />
+          <div className="lang-switch" role="group" aria-label="Langue / Language">
+            <button
+              type="button"
+              className={lang === 'fr' ? 'active' : ''}
+              aria-pressed={lang === 'fr'}
+              onClick={() => setLang('fr')}
+            >FR</button>
+            <button
+              type="button"
+              className={lang === 'en' ? 'active' : ''}
+              aria-pressed={lang === 'en'}
+              onClick={() => setLang('en')}
+            >EN</button>
+          </div>
           <div className="topbar-user">
             <div className="avatar">{String((user.fullName || 'U')[0]).toUpperCase()}</div>
             <div className="topbar-user-text">
               <strong>{user.fullName}</strong>
-              <span><Badge tone={ROLE_BADGE[role] || 'gray'}>{ROLE_LABEL[role] || role}</Badge></span>
+              <span><Badge tone={ROLE_BADGE[role] || 'gray'}>{t(ROLE_LABEL[role] || role)}</Badge></span>
             </div>
           </div>
         </header>
         <main className="content">
           {offline && (
             <Alert tone="warning" className="offline-bar">
-              Connexion au serveur perdue : vérifiez votre réseau. Les données affichées peuvent être obsolètes.
+              {t('Connexion au serveur perdue : vérifiez votre réseau. Les données affichées peuvent être obsolètes.')}
             </Alert>
           )}
           {children}

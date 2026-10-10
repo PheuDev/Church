@@ -1,12 +1,21 @@
 // ============================================================
 // GenericResourcePage — page CRUD générique pour toute ressource
+//
+// Extensions :
+// - resource.stripKeys : champs du formulaire NON envoyés au CRUD
+//   (ex: 'memberIds'), transmis à resource.afterSave(saved, extras)
+// - resource.formInitial(row) : pré-remplit le formulaire (multiselect…)
+// - resource.queryFilters : noms de filtres lus depuis ?param= (URL)
+// - resource.queryDefaults : { champ: 'param' } pré-remplis à la création
 // ============================================================
 import React, { useState, useEffect, useRef } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/auth.jsx';
-import { list, create, update, remove, exportCsv } from '../api/http.js';
-import { canAccess } from '../api/resources.js';
+import { list, create, update, remove, put, exportCsv } from '../api/http.js';
+import { can, useRolePermissions } from '../api/permissions.jsx';
 import { getErrorMessage } from '../api/client.js';
+import { useI18n } from '../lib/i18n.jsx';
 import { DataTable } from './DataTable.jsx';
 import { ResourceForm, optionsOf } from './ResourceForm.jsx';
 import { Modal, Button, PageHeader, Alert, ConfirmDialog } from './ui.jsx';
@@ -16,14 +25,31 @@ const DEBOUNCE_MS = 350;
 
 export function GenericResourcePage({ resource, extraActions, topContent }) {
   const { role } = useAuth();
+  const { t } = useI18n();
+  useRolePermissions(); // re-rend à chaque changement de matrice d'accès
+  const location = useLocation();
   const toast = useToast();
-  const canWrite = canAccess(role, resource.roles, 'write');
-  const canDelete = canAccess(role, resource.roles, 'delete');
+  const resKey = resource.path.replace(/^\//, '');
+  const singular = t((resource.singular || 'élément').toLowerCase());
+  const canWrite = can(role, resKey, 'write', resource.roles);
+  const canDelete = can(role, resKey, 'delete', resource.roles);
   const readOnly = resource.readOnly || !canWrite;
+
+  const query = new URLSearchParams(location.search);
+  const initialFilters = {};
+  (resource.queryFilters || []).forEach((name) => {
+    const v = query.get(name);
+    if (v) initialFilters[name] = v;
+  });
+  const queryDefaults = {};
+  Object.entries(resource.queryDefaults || {}).forEach(([field, param]) => {
+    const v = query.get(param);
+    if (v) queryDefaults[field] = v;
+  });
 
   const [state, setState] = useState({
     loading: true, items: [], total: 0, page: 1, pageSize: 25,
-    search: '', filters: {}, filterOptions: {}, error: null,
+    search: '', filters: initialFilters, filterOptions: {}, error: null,
     sort: null, order: 'asc',
   });
   const [editing, setEditing] = useState(null);
@@ -98,10 +124,19 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
 
   async function handleSubmit(payload) {
     try {
+      const base = { ...payload };
+      const extras = {};
+      (resource.stripKeys || []).forEach((k) => {
+        if (k in base) { extras[k] = base[k]; delete base[k]; }
+      });
+      let saved;
       if (editing?.id) {
-        await update(resource.path, editing.id, payload);
+        saved = await update(resource.path, editing.id, base);
       } else {
-        await create(resource.path, payload);
+        saved = await create(resource.path, { ...base, ...queryDefaults });
+      }
+      if (resource.afterSave) {
+        await resource.afterSave(saved, extras, { created: !editing?.id, put });
       }
       toast.success(editing?.id ? 'Enregistré avec succès.' : 'Créé avec succès.');
       setEditing(null);
@@ -156,13 +191,13 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
   const rowActions = (row) => (
     <>
       {!readOnly && canWrite && (
-        <button type="button" className="row-action" title="Modifier" onClick={() => setEditing(row)}>
+        <button type="button" className="row-action" title={t('Modifier')} onClick={() => setEditing(row)}>
           <Pencil size={16} />
         </button>
       )}
-      {!readOnly && resource.rowActions?.(row, { canEdit: canWrite })}
+      {!readOnly && resource.rowActions?.(row, { canEdit: canWrite }, fetchData)}
       {!readOnly && canDelete && (
-        <button type="button" className="row-action danger" title="Supprimer" onClick={() => setDeleting(row)}>
+        <button type="button" className="row-action danger" title={t('Supprimer')} onClick={() => setDeleting(row)}>
           <Trash2 size={16} />
         </button>
       )}
@@ -176,7 +211,7 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
       {extraActions}
       {!readOnly && canWrite && (
         <Button variant="primary" icon="Plus" onClick={() => setEditing({})}>
-          {`Nouveau ${(resource.singular || 'élément').toLowerCase()}`}
+          {`${t('Nouveau')} ${singular}`}
         </Button>
       )}
     </>
@@ -186,10 +221,10 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
     const opts = f.source ? (state.filterOptions[f.name] || []) : optionsOf(f);
     return (
       <div className="filter-item" key={f.name}>
-        <span>{f.label}</span>
+        <span>{t(f.label)}</span>
         <select className="input select" value={state.filters[f.name] || ''} onChange={(ev) => onFilter(f.name, ev.target.value)}>
-          <option value="">Tous</option>
-          {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          <option value="">{t('Tous')}</option>
+          {opts.map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
         </select>
       </div>
     );
@@ -197,7 +232,7 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
 
   return (
     <div className="page">
-      <PageHeader title={resource.label} subtitle={resource.description} actions={headerActions} />
+      <PageHeader title={t(resource.label)} subtitle={resource.description} actions={headerActions} />
       {topContent}
       {(resource.filters || []).length > 0 && (
         <div className="filter-bar">{(resource.filters || []).map(filterSelect)}</div>
@@ -216,7 +251,7 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
         onSortChange={onSortChange}
         search={state.search}
         onSearch={resource.search !== false ? onSearch : null}
-        searchPlaceholder={resource.searchPlaceholder || 'Rechercher…'}
+        searchPlaceholder={t(resource.searchPlaceholder || 'Rechercher…')}
         loading={state.loading}
         emptyTitle={resource.emptyTitle}
         emptyMessage={resource.emptyMessage}
@@ -225,23 +260,24 @@ export function GenericResourcePage({ resource, extraActions, topContent }) {
 
       <Modal
         open={editing !== null}
-        title={editing?.id ? `Modifier ${(resource.singular || 'élément').toLowerCase()}` : `Nouveau ${(resource.singular || 'élément').toLowerCase()}`}
+        title={editing?.id ? `${t('Modifier')} ${singular}` : `${t('Nouveau')} ${singular}`}
         onClose={() => setEditing(null)}
         wide={resource.wide}
       >
         <ResourceForm
+          key={editing?.id || 'new'}
           fields={resource.form}
-          initial={editing || {}}
+          initial={resource.formInitial ? resource.formInitial(editing) : ({ ...editing, ...queryDefaults })}
           onSubmit={handleSubmit}
           onCancel={() => setEditing(null)}
-          submitLabel={editing?.id ? 'Enregistrer' : 'Créer'}
+          submitLabel={editing?.id ? t('Enregistrer') : t('Créer')}
         />
       </Modal>
 
       <ConfirmDialog
         open={deleting !== null}
-        title={`Supprimer ${(resource.singular || 'élément').toLowerCase()}`}
-        message={`Voulez-vous vraiment supprimer cet élément ? Cette action est irréversible.`}
+        title={`${t('Supprimer')} ${singular}`}
+        message={t('Voulez-vous vraiment supprimer cet élément ? Cette action est irréversible.')}
         onConfirm={handleDelete}
         onCancel={() => setDeleting(null)}
       />

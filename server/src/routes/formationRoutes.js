@@ -1,8 +1,13 @@
 // ============================================================
-// Formations : programmes, sessions, leçons, versets
+// Formations : programmes, sessions, leçons
 // ============================================================
 import { z } from 'zod';
+import prisma from '../lib/prisma.js';
 import { crudRouter } from '../lib/router.js';
+import { access } from '../lib/permissions.js';
+import { validateBody } from '../lib/validate.js';
+import { asyncHandler, AppError } from '../lib/http.js';
+import { audit } from '../lib/audit.js';
 
 const programShape = {
   name: z.string().min(1).max(200),
@@ -32,32 +37,7 @@ const lessonShape = {
   objective: z.string().max(2000).nullable().optional(),
   content: z.string().max(10000).nullable().optional(),
   durationMin: z.number().int().min(0).nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
-};
-
-const verseShape = {
-  book: z.string().min(1).max(100),
-  chapter: z.number().int().min(0),
-  verse: z.number().int().min(0),
-  text: z.string().min(1).max(2000),
-  version: z.string().max(30).nullable().optional(),
-};
-
-const lessonVerseShape = {
-  lessonId: z.string().min(1),
-  verseId: z.string().min(1),
-  position: z.number().int().min(0).default(0).optional(),
-};
-
-const sessionLessonShape = {
-  sessionId: z.string().min(1),
-  lessonId: z.string().nullable().optional(),
-  seanceType: z.enum(['NEW_LESSON', 'SUITE', 'REVISION', 'RAPPEL', 'EVALUATION', 'SYNTHESE', 'AUTRE']).default('NEW_LESSON').optional(),
-  title: z.string().min(1).max(300),
-  taughtAt: z.coerce.date().nullable().optional(),
-  teacherId: z.string().nullable().optional(),
-  objective: z.string().max(2000).nullable().optional(),
-  content: z.string().max(10000).nullable().optional(),
+  verses: z.string().max(1000).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
 };
 
@@ -81,10 +61,43 @@ export function formationRoutes() {
     include: {
       program: { select: { id: true, name: true } },
       responsible: { select: { id: true, firstName: true, lastName: true } },
+      lessonPlans: { where: { lessonId: { not: null } }, select: { lessonId: true } },
       _count: { select: { candidates: true, lessonPlans: true } },
     },
     createSchema: z.object(formationSessionShape).strict(),
     updateSchema: z.object(formationSessionShape).strict().partial(),
+    transform: (router) => {
+      // Leçons dispensées : cases à cocher gérées depuis le formulaire session.
+      router.put('/:id/lessons', access('write', ['ADMIN', 'PASTOR', 'SECRETARY']),
+        validateBody(z.object({ lessonIds: z.array(z.string().min(1)).max(200) }).strict()),
+        asyncHandler(async (req, res) => {
+          const session = await prisma.formationSession.findFirst({ where: { id: req.params.id, churchId: req.churchId } });
+          if (!session) throw new AppError(404, 'Session introuvable.');
+
+          const target = new Set(req.body.lessonIds);
+          const current = await prisma.sessionLesson.findMany({
+            where: { sessionId: session.id, churchId: req.churchId, lessonId: { not: null } },
+            select: { id: true, lessonId: true },
+          });
+          const currentIds = new Set(current.map((s) => s.lessonId));
+
+          const toAdd = [...target].filter((id) => !currentIds.has(id));
+          const toRemove = current.filter((s) => !target.has(s.lessonId)).map((s) => s.id);
+
+          if (toAdd.length) {
+            const lessons = await prisma.lesson.findMany({ where: { id: { in: toAdd }, churchId: req.churchId }, select: { id: true, title: true } });
+            await prisma.sessionLesson.createMany({
+              data: lessons.map((l) => ({ churchId: req.churchId, sessionId: session.id, lessonId: l.id, title: l.title })),
+              skipDuplicates: true,
+            });
+          }
+          if (toRemove.length) {
+            await prisma.sessionLesson.deleteMany({ where: { id: { in: toRemove }, churchId: req.churchId } });
+          }
+          audit(req, 'formationSession.update', 'FormationSession', session.id, { lessonCount: target.size });
+          res.json({ saved: target.size });
+        }));
+    },
   });
 
   const lessons = crudRouter({
@@ -95,49 +108,10 @@ export function formationRoutes() {
     orderBy: [{ number: 'asc' }],
     include: {
       program: { select: { id: true, name: true } },
-      _count: { select: { verses: true } },
     },
     createSchema: z.object(lessonShape).strict(),
     updateSchema: z.object(lessonShape).strict().partial(),
   });
 
-  const verses = crudRouter({
-    model: 'bibleVerse',
-    label: 'Verset biblique',
-    searchFields: ['text', 'book'],
-    filters: ['book'],
-    include: { _count: { select: { lessonLinks: true } } },
-    createSchema: z.object(verseShape).strict(),
-    updateSchema: z.object(verseShape).strict().partial(),
-  });
-
-  const lessonVerses = crudRouter({
-    model: 'lessonVerse',
-    label: 'Association leçon-verset',
-    filters: ['lessonId', 'verseId'],
-    orderBy: { position: 'asc' },
-    include: {
-      lesson: { select: { id: true, title: true } },
-      verse: { select: { id: true, book: true, chapter: true, verse: true, text: true } },
-    },
-    createSchema: z.object(lessonVerseShape).strict(),
-    updateSchema: z.object(lessonVerseShape).strict().partial(),
-  });
-
-  const sessionLessons = crudRouter({
-    model: 'sessionLesson',
-    label: 'Séance de formation',
-    searchFields: ['title'],
-    filters: ['sessionId', 'teacherId', 'seanceType'],
-    orderBy: { taughtAt: 'desc' },
-    include: {
-      session: { select: { id: true, name: true } },
-      lesson: { select: { id: true, title: true, number: true } },
-      teacher: { select: { id: true, firstName: true, lastName: true } },
-    },
-    createSchema: z.object(sessionLessonShape).strict(),
-    updateSchema: z.object(sessionLessonShape).strict().partial(),
-  });
-
-  return { programs, sessions, lessons, verses, lessonVerses, sessionLessons };
+  return { programs, sessions, lessons };
 }

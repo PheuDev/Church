@@ -33,7 +33,8 @@ const changeLimiter = rateLimit({
 const DUMMY_HASH = hashPassword('placeholder-timing-only');
 
 const loginSchema = z.object({
-  email: z.string().trim().email('Adresse e-mail invalide.'),
+  // Identifiant : adresse e-mail OU pseudo (username).
+  email: z.string().trim().min(1, 'Identifiant requis.').max(200),
   password: z.string().min(1, 'Mot de passe requis.'),
 }).strict();
 
@@ -51,17 +52,24 @@ export function authRoutes() {
   const router = Router();
 
   router.post('/login', loginLimiter, validateBody(loginSchema), asyncHandler(async (req, res) => {
-    const email = req.body.email.toLowerCase();
-    const user = await prisma.user.findFirst({ where: { email } });
+    const ident = req.body.email.trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: ident, mode: 'insensitive' } },
+          { username: { equals: ident, mode: 'insensitive' } },
+        ],
+      },
+    });
     const matches = verifyPassword(req.body.password, user ? user.passwordHash : DUMMY_HASH);
     if (!user || !user.isActive || !matches) {
       if (user) {
         // Journalise la connexion refusée (traçabilité). Rien n'est journalisé
-        // pour un e-mail inconnu : le journal est cloisonné par église.
+        // pour un identifiant inconnu : le journal est cloisonné par église.
         req.churchId = user.churchId;
-        audit(req, 'auth.login_failed', 'User', user.id, { email });
+        audit(req, 'auth.login_failed', 'User', user.id, { email: ident });
       }
-      throw new AppError(401, 'Adresse e-mail ou mot de passe incorrect.');
+      throw new AppError(401, 'Identifiant ou mot de passe incorrect.');
     }
     req.churchId = user.churchId;
     audit(req, 'auth.login', 'User', user.id);

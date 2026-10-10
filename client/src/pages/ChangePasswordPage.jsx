@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/auth.jsx';
 import { Alert, Button, Field, Input, Card } from '../components/ui.jsx';
-import { Cross, KeyRound } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 
 export function ChangePasswordPage() {
   const { changePassword, logout } = useAuth();
@@ -42,7 +42,7 @@ export function ChangePasswordPage() {
     <div className="auth-page">
       <div className="auth-card narrow">
         <div className="auth-brand">
-          <div className="brand-mark big"><Cross size={32} /></div>
+          <div className="brand-mark big"><img src="/logo-ad.svg" alt="AD" style={{ width: 52, height: 52, objectFit: 'contain' }} /></div>
           <h1>Changer le mot de passe</h1>
           <p>Pour des raisons de sécurité, vous devez définir un nouveau mot de passe.</p>
         </div>

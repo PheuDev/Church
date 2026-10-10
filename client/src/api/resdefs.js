@@ -20,14 +20,12 @@ export const ROLES = {
 // Champs récurrents
 export const F = {
   person: (extra = {}) => ({ name: 'personId', label: 'Personne', type: 'async', source: '/persons', optionLabel: personLabel, ...extra }),
-  family: (extra = {}) => ({ name: 'familyId', label: 'Famille', type: 'async', source: '/families', optionLabel: name1, ...extra }),
   department: (extra = {}) => ({ name: 'departmentId', label: 'Département', type: 'async', source: '/departments', optionLabel: name1, ...extra }),
   responsible: (extra = {}) => ({ name: 'responsibleId', label: 'Responsable', type: 'async', source: '/persons', optionLabel: personLabel, ...extra }),
   teacher: (extra = {}) => ({ name: 'teacherId', label: 'Enseignant', type: 'async', source: '/persons', optionLabel: personLabel, ...extra }),
   notes: (label = 'Notes') => ({ name: 'notes', label, type: 'textarea', full: true }),
   isActive: () => ({ name: 'isActive', label: 'Actif', type: 'boolean' }),
   account: (extra = {}) => ({ name: 'accountId', label: 'Compte', type: 'async', source: '/finance/accounts', optionLabel: name1, ...extra }),
-  fund: (extra = {}) => ({ name: 'fundId', label: 'Fonds', type: 'async', source: '/finance/funds', optionLabel: name1, ...extra }),
   category: (extra = {}) => ({ name: 'categoryId', label: 'Catégorie', type: 'async', source: '/finance/categories', optionLabel: name1, ...extra }),
   paymentMethod: () => ({ name: 'paymentMethod', label: 'Mode de paiement', type: 'select', options: 'PaymentMethod' }),
 };

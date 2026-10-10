@@ -1,8 +1,8 @@
-// Événements, projets, utilisateurs, audit — configuration
+// Événements, projets, participants — configuration
 import { Badge, BadgeEnum } from '../components/ui.jsx';
 import { personLabel, name1, F } from './resdefs.js';
 import { fmtDate, fmtDateTime, fmtMoney } from '../lib/format.js';
-import { ROLES } from './resdefs.js';
+import { put } from './http.js';
 
 export const MISC_R = {
   events: {
@@ -11,11 +11,20 @@ export const MISC_R = {
     singular: 'Événement',
     icon: 'PartyPopper',
     searchPlaceholder: 'Nom, lieu…',
+    stripKeys: ['participantIds'],
+    formInitial: (row) => ({
+      ...(row || {}),
+      participantIds: (row?.participants || []).map((p) => p.personId),
+    }),
+    afterSave: async (saved, extras, { put: putFn }) => {
+      await (putFn || put)('/events', saved.id, 'participants', { personIds: extras.participantIds || [] });
+    },
     columns: [
       { title: 'Nom', render: (r) => <b>{r.name}</b> },
       { title: 'Type', render: (r) => <BadgeEnum group="EventType" value={r.type} /> },
       { title: 'Début', render: (r) => fmtDateTime(r.startDate) },
       { title: 'Lieu', render: (r) => r.location || '—' },
+      { title: 'Participants', render: (r) => (r._count?.participants || 0) },
       { title: 'Budget', render: (r) => fmtMoney(r.budget), align: 'right' },
       { title: 'Statut', render: (r) => <BadgeEnum group="ActivityStatus" value={r.status} /> },
     ],
@@ -34,30 +43,11 @@ export const MISC_R = {
       { name: 'status', label: 'Statut', type: 'select', options: 'ActivityStatus' },
       { name: 'description', label: 'Description', type: 'textarea', full: true },
       { name: 'reportNote', label: 'Rapport', type: 'textarea', full: true },
-    ],
-  },
-
-  'event-participants': {
-    path: '/event-participants',
-    label: 'Participants',
-    singular: 'Participant',
-    icon: 'UserCheck',
-    columns: [
-      { title: 'Événement', render: (r) => name1(r.event) },
-      { title: 'Personne', render: (r) => (r.person ? `${r.person.firstName} ${r.person.lastName}` : '—') },
-      { title: 'Rôle', render: (r) => r.role || '—' },
-      { title: 'Confirmé', render: (r) => <Badge tone={r.isConfirmed ? 'green' : 'gray'}>{r.isConfirmed ? 'Oui' : 'Non'}</Badge> },
-    ],
-    filters: [
-      { name: 'eventId', label: 'Événement', source: '/events', optionLabel: name1 },
-      { name: 'personId', label: 'Personne', source: '/persons', optionLabel: personLabel },
-    ],
-    form: [
-      { name: 'eventId', label: 'Événement', type: 'async', source: '/events', optionLabel: name1, required: true },
-      { ...F.person({ required: true }) },
-      { name: 'role', label: 'Rôle', type: 'text' },
-      { name: 'isConfirmed', label: 'Participation confirmée', type: 'boolean' },
-      { name: 'note', label: 'Note', type: 'textarea', full: true },
+      {
+        name: 'participantIds', label: 'Participants', type: 'multiselect', full: true,
+        source: '/persons', sourceParams: { active: 'true' }, optionLabel: personLabel,
+        hint: "Cochez les personnes inscrites à cet événement.",
+      },
     ],
   },
 
@@ -71,6 +61,7 @@ export const MISC_R = {
       { title: 'Nom', render: (r) => <b>{r.name}</b> },
       { title: 'Type', render: (r) => <BadgeEnum group="ProjectType" value={r.type} /> },
       { title: 'Statut', render: (r) => <BadgeEnum group="ProjectStatus" value={r.status} /> },
+      { title: 'Engagements', render: (r) => (r._count?.engagements || 0) },
       { title: 'Cible', render: (r) => fmtMoney(r.targetAmount), align: 'right' },
       { title: 'Début', render: (r) => fmtDate(r.startDate) },
       { title: 'Responsable', render: (r) => (r.responsible ? `${r.responsible.firstName} ${r.responsible.lastName}` : '—') },

@@ -9,12 +9,12 @@ import { asyncHandler, notFound } from '../lib/http.js';
 import { requireRole } from '../lib/auth.js';
 import { validateBody } from '../lib/validate.js';
 import { audit } from '../lib/audit.js';
+import { invalidatePermissions } from '../lib/permissions.js';
 
 const churchShape = {
   name: z.string().min(1).max(200),
   shortName: z.string().max(80).nullable().optional(),
   code: z.string().min(1).max(50).optional(),
-  localityId: z.string().nullable().optional(),
   address: z.string().max(300).nullable().optional(),
   city: z.string().max(120).nullable().optional(),
   phone: z.string().max(40).nullable().optional(),
@@ -66,6 +66,7 @@ export function churchRoutes() {
         create: { churchId: req.churchId, ...req.body },
         update: { value: req.body.value },
       });
+      invalidatePermissions(req.churchId);
       audit(req, 'churchSetting.upsert', 'ChurchSetting', setting.id, req.body);
       res.status(201).json(setting);
     }));
@@ -74,6 +75,7 @@ export function churchRoutes() {
       const setting = await prisma.churchSetting.findFirst({ where: { churchId: req.churchId, key: req.params.key } });
       if (!setting) throw notFound('Paramètre introuvable.');
       const updated = await prisma.churchSetting.update({ where: { id: setting.id }, data: { value: req.body.value } });
+      invalidatePermissions(req.churchId);
       res.json(updated);
     }));
 
@@ -81,6 +83,7 @@ export function churchRoutes() {
       const setting = await prisma.churchSetting.findFirst({ where: { churchId: req.churchId, key: req.params.key } });
       if (!setting) throw notFound('Paramètre introuvable.');
       await prisma.churchSetting.delete({ where: { id: setting.id } });
+      invalidatePermissions(req.churchId);
       res.status(204).end();
     }));
     return router;

@@ -1,26 +1,25 @@
-// École du dimanche — configuration des ressources
+// École du dimanche — classes et séances dimanche enrichies
 import { BadgeEnum } from '../components/ui.jsx';
-import { personLabel, name1, F } from './resdefs.js';
-import { fmtDate } from '../lib/format.js';
+import { name1, F } from './resdefs.js';
+import { fmtDate, fmtMoney } from '../lib/format.js';
+import { toInputDate } from '../lib/format.js';
 
 export const SSUNDAY_R = {
   'sunday-school/classes': {
     path: '/sunday-school/classes',
-    label: 'Classes du dimanche',
+    label: 'Classes (École du dimanche)',
     singular: 'Classe',
     icon: 'GraduationCap',
     searchPlaceholder: 'Nom de la classe…',
     columns: [
-      { title: 'Nom', render: (r) => <b>{r.name}</b> },
+      { title: 'Nom',        render: (r) => <b>{r.name}</b> },
       { title: 'Enseignant', render: (r) => (r.teacher ? `${r.teacher.firstName} ${r.teacher.lastName}` : '—') },
-      { title: 'Âges', render: (r) => `${r.minAge ?? '—'} – ${r.maxAge ?? '—'}` },
-      { title: 'Séances', render: (r) => (r._count?.sessions || 0) },
+      { title: 'Séances',    render: (r) => (r._count?.sessions || 0) },
+      { title: 'Actif',      render: (r) => <BadgeEnum group="ActivityStatus" value={r.isActive ? 'DONE' : 'CANCELLED'} /> },
     ],
     form: [
-      { name: 'name', label: 'Nom', type: 'text', required: true },
+      { name: 'name', label: 'Nom de la classe', type: 'text', required: true },
       F.teacher(),
-      { name: 'minAge', label: 'Âge minimum', type: 'number', min: 0 },
-      { name: 'maxAge', label: 'Âge maximum', type: 'number', min: 0 },
       { name: 'description', label: 'Description', type: 'textarea', full: true },
       F.isActive(),
     ],
@@ -28,53 +27,38 @@ export const SSUNDAY_R = {
 
   'sunday-school/sessions': {
     path: '/sunday-school/sessions',
-    label: 'Séances du dimanche',
+    label: 'Séances (École du dimanche)',
     singular: 'Séance',
     icon: 'Presentation',
     searchPlaceholder: 'Titre, thème…',
     columns: [
-      { title: 'Titre', render: (r) => <b>{r.title}</b> },
-      { title: 'Classe', render: (r) => name1(r.class) },
-      { title: 'Date', render: (r) => fmtDate(r.sessionDate) },
+      { title: 'Date',       render: (r) => fmtDate(r.sessionDate), sortKey: 'sessionDate' },
+      { title: 'Classe',     render: (r) => name1(r.class) },
+      { title: 'Thème',      render: (r) => r.lessonTopic || r.title },
       { title: 'Enseignant', render: (r) => (r.teacher ? `${r.teacher.firstName} ${r.teacher.lastName}` : '—') },
-      { title: 'Statut', render: (r) => <BadgeEnum group="ActivityStatus" value={r.status} /> },
+      { title: 'Effectif',   render: (r) => <b>{r.presentCount ?? 0}</b> },
+      { title: 'Bibles',     render: (r) => r.bibleCount ?? 0 },
+      { title: 'Offrande',   render: (r) => fmtMoney(r.offering ?? 0) },
     ],
     filters: [
       { name: 'classId', label: 'Classe', source: '/sunday-school/classes', optionLabel: name1 },
-      { name: 'status', label: 'Statut', options: 'ActivityStatus' },
     ],
+    // Valeurs par défaut à la création : date = aujourd'hui
+    queryDefaults: {},
     form: [
-      { name: 'classId', label: 'Classe', type: 'async', source: '/sunday-school/classes', optionLabel: name1, required: true },
-      { name: 'title', label: 'Titre', type: 'text', required: true },
-      { name: 'sessionDate', label: 'Date', type: 'date', required: true },
-      { name: 'startTime', label: 'Début (HH:MM)', type: 'time' },
-      { name: 'endTime', label: 'Fin (HH:MM)', type: 'time' },
-      F.teacher(),
-      { name: 'lessonTopic', label: 'Leçon / thème', type: 'text', full: true },
-      { name: 'status', label: 'Statut', type: 'select', options: 'ActivityStatus' },
-      F.notes('Notes'),
-    ],
-  },
-
-  'sunday-school/participants': {
-    path: '/sunday-school/participants',
-    label: 'Présences école du dimanche',
-    singular: 'Présence',
-    icon: 'ClipboardCheck',
-    columns: [
-      { title: 'Séance', render: (r) => (r.session ? r.session.title : '—') },
-      { title: 'Personne', render: (r) => (r.person ? `${r.person.firstName} ${r.person.lastName}` : '—') },
-      { title: 'Statut', render: (r) => <BadgeEnum group="AttendanceStatus" value={r.status} /> },
-    ],
-    filters: [
-      { name: 'sessionId', label: 'Séance', source: '/sunday-school/sessions', optionLabel: (r) => r.title },
-      { name: 'status', label: 'Statut', options: 'AttendanceStatus' },
-    ],
-    form: [
-      { name: 'sessionId', label: 'Séance', type: 'async', source: '/sunday-school/sessions', optionLabel: (r) => r.title, required: true },
-      { ...F.person({ required: true }) },
-      { name: 'status', label: 'Statut', type: 'select', options: 'AttendanceStatus' },
-      { name: 'note', label: 'Note', type: 'textarea', full: true },
+      { name: 'classId',     label: 'Classe',    type: 'async', source: '/sunday-school/classes', optionLabel: name1, required: true },
+      { name: 'sessionDate', label: 'Date du dimanche', type: 'date', required: true,
+        hint: 'La date du dimanche concerné.' },
+      { name: 'title',       label: 'Titre / leçon', type: 'text', required: true,
+        hint: 'Ex : Leçon 5 — La foi' },
+      F.teacher({ hint: 'Sélectionner dans l\'annuaire.' }),
+      { name: 'lessonTopic', label: 'Thème ou texte de base', type: 'text', full: true },
+      { name: 'presentCount', label: 'Effectif présent',  type: 'number', min: 0 },
+      { name: 'absentCount',  label: 'Absents',           type: 'number', min: 0 },
+      { name: 'bibleCount',   label: 'Bibles apportées',  type: 'number', min: 0 },
+      { name: 'offering',     label: 'Offrande (FCFA)',   type: 'number', min: 0, step: 'any' },
+      { name: 'attendanceNotes', label: 'Observations', type: 'textarea', full: true,
+        hint: 'Noms des absents, remarques diverses…' },
     ],
   },
 };

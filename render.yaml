@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ad-gestion
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run db:push -w server && npm run db:seed -w server
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ad-gestion-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        generateValue: true
+
+databases:
+  - name: ad-gestion-db
+    plan: basic-256mb
+    databaseName: ad_gestion
+    user: ad_gestion

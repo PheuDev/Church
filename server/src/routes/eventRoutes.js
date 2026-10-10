@@ -1,8 +1,13 @@
 // ============================================================
-// Événements & participants
+// Événements & participants (gérés depuis le formulaire événement)
 // ============================================================
 import { z } from 'zod';
+import prisma from '../lib/prisma.js';
 import { crudRouter } from '../lib/router.js';
+import { access } from '../lib/permissions.js';
+import { validateBody } from '../lib/validate.js';
+import { asyncHandler, AppError } from '../lib/http.js';
+import { audit } from '../lib/audit.js';
 
 const eventShape = {
   name: z.string().min(1).max(200),
@@ -17,14 +22,6 @@ const eventShape = {
   reportNote: z.string().max(5000).nullable().optional(),
 };
 
-const participantShape = {
-  eventId: z.string().min(1),
-  personId: z.string().min(1),
-  role: z.string().max(200).nullable().optional(),
-  isConfirmed: z.boolean().default(false).optional(),
-  note: z.string().max(1000).nullable().optional(),
-};
-
 export function eventRoutes() {
   const events = crudRouter({
     model: 'churchEvent',
@@ -34,23 +31,43 @@ export function eventRoutes() {
     orderBy: { startDate: 'desc' },
     include: {
       responsible: { select: { id: true, firstName: true, lastName: true } },
+      participants: { select: { personId: true } },
       _count: { select: { participants: true } },
     },
     createSchema: z.object(eventShape).strict(),
     updateSchema: z.object(eventShape).strict().partial(),
-  });
+    transform: (router) => {
+      // Inscriptions gérées depuis le formulaire événement (rôles conservés).
+      router.put('/:id/participants', access('write', ['ADMIN', 'PASTOR', 'SECRETARY']),
+        validateBody(z.object({ personIds: z.array(z.string().min(1)).max(1000) }).strict()),
+        asyncHandler(async (req, res) => {
+          const event = await prisma.churchEvent.findFirst({ where: { id: req.params.id, churchId: req.churchId } });
+          if (!event) throw new AppError(404, 'Événement introuvable.');
 
-  const participants = crudRouter({
-    model: 'eventParticipant',
-    label: 'Participant à un événement',
-    filters: ['eventId', 'personId', 'isConfirmed'],
-    include: {
-      event: { select: { id: true, name: true, startDate: true } },
-      person: { select: { id: true, firstName: true, lastName: true } },
+          const target = new Set(req.body.personIds);
+          const current = await prisma.eventParticipant.findMany({
+            where: { eventId: event.id, churchId: req.churchId },
+            select: { id: true, personId: true },
+          });
+          const currentIds = new Set(current.map((p) => p.personId));
+          const toAdd = [...target].filter((id) => !currentIds.has(id));
+          const toRemove = current.filter((p) => !target.has(p.personId)).map((p) => p.id);
+
+          await Promise.all(toAdd.map((personId) =>
+            prisma.eventParticipant.upsert({
+              where: { eventId_personId: { eventId: event.id, personId } },
+              create: { churchId: req.churchId, eventId: event.id, personId },
+              update: {},
+            }),
+          ));
+          if (toRemove.length) {
+            await prisma.eventParticipant.deleteMany({ where: { id: { in: toRemove }, churchId: req.churchId } });
+          }
+          audit(req, 'churchEvent.update', 'ChurchEvent', event.id, { participantCount: target.size });
+          res.json({ saved: target.size });
+        }));
     },
-    createSchema: z.object(participantShape).strict(),
-    updateSchema: z.object(participantShape).strict().partial(),
   });
 
-  return { events, participants };
+  return { events };
 }

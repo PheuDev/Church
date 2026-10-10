@@ -18,9 +18,14 @@ export function create(path, data) {
   return api.post(path, data).then((r) => r.data);
 }
 
-/** Mise à jour partielle : PATCH /path/:id */
+/** Mise à jour complète : PATCH /path/:id (reçoit un objet plein) */
 export function update(path, id, data) {
   return api.patch(`${path}/${id}`, data).then((r) => r.data);
+}
+
+/** Remplacement : PUT /path/:id/suffixe (sync de relations…) */
+export function put(path, id, suffix, data) {
+  return api.put(`${path}/${id}/${suffix}`, data).then((r) => r.data);
 }
 
 /** Suppression : DELETE /path/:id */

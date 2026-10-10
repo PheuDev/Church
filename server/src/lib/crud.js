@@ -151,7 +151,7 @@ export function createCrudResource({
 
     /** POST / → création */
     create: asyncHandler(async (req, res) => {
-      const data = pick(req.body);
+      const data = await pick(req.body, req);
       const item = await db().create({ data: { ...data, ...(churchScoped ? { churchId: req.churchId } : {}) }, include });
       audit(req, `${model}.create`, model, item.id, data);
       res.status(201).json(item);
@@ -161,7 +161,7 @@ export function createCrudResource({
     update: asyncHandler(async (req, res) => {
       const current = await db().findFirst({ where: { id: req.params.id, ...(churchScoped ? { churchId: req.churchId } : {}) } });
       if (!current) throw new AppError(404, `${label} introuvable.`);
-      const data = pick(req.body);
+      const data = await pick(req.body, req);
       const item = await db().update({ where: { id: current.id }, data, include });
       audit(req, `${model}.update`, model, item.id, data);
       res.json(item);

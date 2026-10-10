@@ -3,7 +3,7 @@
 // ============================================================
 import { Router } from 'express';
 import { createCrudResource, DEFAULT_ROLES } from './crud.js';
-import { requireRole } from './auth.js';
+import { access } from './permissions.js';
 import { asyncHandler } from './http.js';
 import { validateBody } from './validate.js';
 
@@ -22,17 +22,19 @@ export function crudRouter(conf) {
   const resource = createCrudResource(conf);
   const read = conf.readRoles || DEFAULT_ROLES.read;
   const write = conf.writeRoles || DEFAULT_ROLES.write;
-  const del = conf.deleteRoles || DEFAULT_ROLES.delete;
+  // La suppression est toujours réservée à l'ADMIN, quelles que soient
+  // les options passées — seul l'administrateur peut supprimer des données.
+  const del = ['ADMIN'];
 
-  router.get('/', requireRole(...read), asyncHandler(resource.list));
-  router.post('/', requireRole(...write), conf.createSchema ? validateBody(conf.createSchema) : (req, _res, next) => next(), asyncHandler(resource.create));
+  router.get('/', access('read', read), asyncHandler(resource.list));
+  router.post('/', access('write', write), conf.createSchema ? validateBody(conf.createSchema) : (req, _res, next) => next(), asyncHandler(resource.create));
 
   // Routes personnalisées AVANT /:id pour éviter les collisions de chemins.
   if (conf.transform) conf.transform(router, resource);
 
-  router.get('/:id', requireRole(...read), asyncHandler(resource.get));
-  router.patch('/:id', requireRole(...write), conf.updateSchema ? validateBody(conf.updateSchema) : (req, _res, next) => next(), asyncHandler(resource.update));
-  router.delete('/:id', requireRole(...del), asyncHandler(resource.remove));
+  router.get('/:id', access('read', read), asyncHandler(resource.get));
+  router.patch('/:id', access('write', write), conf.updateSchema ? validateBody(conf.updateSchema) : (req, _res, next) => next(), asyncHandler(resource.update));
+  router.delete('/:id', access('delete', del), asyncHandler(resource.remove));
 
   return router;
 }

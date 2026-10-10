@@ -1,6 +1,6 @@
 // ============================================================
-// Finances : comptes, fonds, catégories, recettes, dépenses,
-// cotisations, engagements + synthèse
+// Finances : comptes, catégories, recettes, dépenses,
+// engagements (cotisations + promesses fusionnées) + synthèse
 // ============================================================
 import { Router } from 'express';
 import { z } from 'zod';
@@ -9,22 +9,28 @@ import { crudRouter } from '../lib/router.js';
 import { requireRole } from '../lib/auth.js';
 import { asyncHandler } from '../lib/http.js';
 
-const FINANCE_ROLES = { read: ['ADMIN', 'PASTOR', 'TREASURER', 'SECRETARY', 'VIEWER'], write: ['ADMIN', 'PASTOR', 'TREASURER', 'SECRETARY'], delete: ['ADMIN', 'TREASURER'] };
+const FINANCE_ROLES = {
+  read:   ['ADMIN', 'PASTOR', 'TREASURER', 'SECRETARY', 'VIEWER'],
+  write:  ['ADMIN', 'PASTOR', 'TREASURER', 'SECRETARY'],
+  delete: ['ADMIN'],
+};
+// Comptes : création/modification réservée ADMIN+PASTOR+TREASURER
+const ACCOUNT_ROLES = {
+  read:   FINANCE_ROLES.read,
+  write:  ['ADMIN', 'PASTOR', 'TREASURER'],
+  delete: ['ADMIN'],
+};
 
 const accountShape = {
   name: z.string().min(1).max(120),
   type: z.enum(['CASH', 'BANK', 'MOBILE_MONEY']).default('CASH').optional(),
+  // Tableau de sources de revenus associées à ce compte (ex: ["OFFER","QUETE"])
+  purpose: z.array(z.enum(['QUETE','OFFER','TITHE','CONTRIBUTION','DONATION','EVENT','PROJECT','OTHER'])).nullable().optional(),
   accountNumber: z.string().max(80).nullable().optional(),
   bankName: z.string().max(120).nullable().optional(),
   phoneNumber: z.string().max(40).nullable().optional(),
   currency: z.string().max(10).default('XAF').optional(),
   initialBalance: z.number().default(0).optional(),
-  description: z.string().max(1000).nullable().optional(),
-  isActive: z.boolean().default(true).optional(),
-};
-
-const fundShape = {
-  name: z.string().min(1).max(120),
   description: z.string().max(1000).nullable().optional(),
   isActive: z.boolean().default(true).optional(),
 };
@@ -38,7 +44,6 @@ const categoryShape = {
 
 const revenueShape = {
   accountId: z.string().nullable().optional(),
-  fundId: z.string().nullable().optional(),
   categoryId: z.string().nullable().optional(),
   source: z.enum(['QUETE', 'OFFER', 'TITHE', 'CONTRIBUTION', 'DONATION', 'EVENT', 'PROJECT', 'OTHER']).default('OTHER').optional(),
   description: z.string().min(1).max(500),
@@ -62,46 +67,29 @@ const expenseShape = {
   notes: z.string().max(2000).nullable().optional(),
 };
 
-const contributionShape = {
+const engagementShape = {
+  personId: z.string().nullable().optional(),
   departmentId: z.string().nullable().optional(),
+  projectId: z.string().nullable().optional(),
   name: z.string().min(1).max(200),
   description: z.string().max(1000).nullable().optional(),
   amount: z.number().min(0),
-  periodicity: z.enum(['ONE_TIME', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL']).default('ANNUAL').optional(),
+  periodicity: z.enum(['ONE_TIME', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL']).default('ONE_TIME').optional(),
   periodStart: z.coerce.date().nullable().optional(),
   periodEnd: z.coerce.date().nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE').optional(),
+  status: z.enum(['OPEN', 'PARTIAL', 'FULFILLED', 'CANCELLED']).default('OPEN').optional(),
+  notes: z.string().max(2000).nullable().optional(),
 };
 
-const contributionPaymentShape = {
-  contributionId: z.string().min(1),
-  personId: z.string().min(1),
+const engagementPaymentShape = {
+  engagementId: z.string().min(1),
+  personId: z.string().nullable().optional(),
   amount: z.number().min(0),
   paymentMethod: z.enum(['CASH', 'MOBILE_MONEY', 'BANK', 'IN_KIND']).default('CASH').optional(),
   paidAt: z.coerce.date(),
   periodLabel: z.string().max(50).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
-};
-
-const commitmentShape = {
-  personId: z.string().min(1),
-  projectId: z.string().nullable().optional(),
-  kind: z.enum(['FINANCIAL', 'IN_KIND']).default('FINANCIAL').optional(),
-  description: z.string().min(1).max(500),
-  amount: z.number().min(0).nullable().optional(),
-  status: z.enum(['OPEN', 'PARTIAL', 'FULFILLED', 'CANCELLED']).default('OPEN').optional(),
-  startDate: z.coerce.date().nullable().optional(),
-  dueDate: z.coerce.date().nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
-};
-
-const commitmentPaymentShape = {
-  commitmentId: z.string().min(1),
-  amount: z.number().min(0),
-  paymentMethod: z.enum(['CASH', 'MOBILE_MONEY', 'BANK', 'IN_KIND']).default('CASH').optional(),
-  paidAt: z.coerce.date(),
-  note: z.string().max(1000).nullable().optional(),
 };
 
 export function financeRoutes() {
@@ -111,15 +99,7 @@ export function financeRoutes() {
     include: { _count: { select: { revenues: true, expenses: true } } },
     createSchema: z.object(accountShape).strict(),
     updateSchema: z.object(accountShape).strict().partial(),
-    readRoles: FINANCE_ROLES.read, writeRoles: FINANCE_ROLES.write, deleteRoles: FINANCE_ROLES.delete,
-  });
-
-  const funds = crudRouter({
-    model: 'fund', label: 'Fonds', searchFields: ['name'], orderBy: { name: 'asc' },
-    include: { _count: { select: { revenues: true } } },
-    createSchema: z.object(fundShape).strict(),
-    updateSchema: z.object(fundShape).strict().partial(),
-    readRoles: FINANCE_ROLES.read, writeRoles: FINANCE_ROLES.write, deleteRoles: FINANCE_ROLES.delete,
+    readRoles: ACCOUNT_ROLES.read, writeRoles: ACCOUNT_ROLES.write, deleteRoles: ACCOUNT_ROLES.delete,
   });
 
   const categories = crudRouter({
@@ -132,11 +112,10 @@ export function financeRoutes() {
 
   const revenues = crudRouter({
     model: 'revenue', label: 'Recette', searchFields: ['description', 'receiptNumber'],
-    filters: ['accountId', 'fundId', 'categoryId', 'source', 'payerId'],
+    filters: ['accountId', 'categoryId', 'source', 'payerId'],
     orderBy: { receivedAt: 'desc' },
     include: {
       account: { select: { id: true, name: true, type: true } },
-      fund: { select: { id: true, name: true } },
       category: { select: { id: true, name: true } },
       payer: { select: { id: true, firstName: true, lastName: true } },
       createdBy: { select: { id: true, fullName: true } },
@@ -162,54 +141,32 @@ export function financeRoutes() {
     csvColumns: ['description', 'amount', 'expenseDate', 'paymentMethod', 'beneficiary', 'receiptNumber'],
   });
 
-  const contributions = crudRouter({
-    model: 'contribution', label: 'Cotisation', searchFields: ['name'],
-    filters: ['departmentId', 'status', 'periodicity'],
-    orderBy: { createdAt: 'desc' },
-    include: { department: { select: { id: true, name: true } } },
-    createSchema: z.object(contributionShape).strict(),
-    updateSchema: z.object(contributionShape).strict().partial(),
-    readRoles: FINANCE_ROLES.read, writeRoles: FINANCE_ROLES.write, deleteRoles: FINANCE_ROLES.delete,
-  });
-
-  const contributionPayments = crudRouter({
-    model: 'contributionPayment', label: 'Paiement de cotisation',
-    filters: ['contributionId', 'personId', 'periodLabel'],
-    orderBy: { paidAt: 'desc' },
-    include: {
-      contribution: { select: { id: true, name: true, amount: true } },
-      person: { select: { id: true, firstName: true, lastName: true } },
-      receivedBy: { select: { id: true, fullName: true } },
-    },
-    createSchema: z.object(contributionPaymentShape).strict(),
-    updateSchema: z.object(contributionPaymentShape).strict().partial(),
-    readRoles: FINANCE_ROLES.read, writeRoles: FINANCE_ROLES.write, deleteRoles: FINANCE_ROLES.delete,
-  });
-
-  const commitments = crudRouter({
-    model: 'commitment', label: 'Engagement', searchFields: ['description'],
-    filters: ['personId', 'projectId', 'status', 'kind'],
+  const engagements = crudRouter({
+    model: 'engagement', label: 'Engagement', searchFields: ['name', 'description'],
+    filters: ['personId', 'departmentId', 'projectId', 'status', 'periodicity'],
     orderBy: { createdAt: 'desc' },
     include: {
       person: { select: { id: true, firstName: true, lastName: true } },
+      department: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
       _count: { select: { payments: true } },
     },
-    createSchema: z.object(commitmentShape).strict(),
-    updateSchema: z.object(commitmentShape).strict().partial(),
+    createSchema: z.object(engagementShape).strict(),
+    updateSchema: z.object(engagementShape).strict().partial(),
     readRoles: FINANCE_ROLES.read, writeRoles: FINANCE_ROLES.write, deleteRoles: FINANCE_ROLES.delete,
   });
 
-  const commitmentPayments = crudRouter({
-    model: 'commitmentPayment', label: "Paiement d'engagement",
-    filters: ['commitmentId'],
+  const engagementPayments = crudRouter({
+    model: 'engagementPayment', label: "Paiement d'engagement",
+    filters: ['engagementId', 'personId', 'periodLabel'],
     orderBy: { paidAt: 'desc' },
     include: {
-      commitment: { select: { id: true, description: true, amount: true } },
+      engagement: { select: { id: true, name: true, amount: true } },
+      person: { select: { id: true, firstName: true, lastName: true } },
       receivedBy: { select: { id: true, fullName: true } },
     },
-    createSchema: z.object(commitmentPaymentShape).strict(),
-    updateSchema: z.object(commitmentPaymentShape).strict().partial(),
+    createSchema: z.object(engagementPaymentShape).strict(),
+    updateSchema: z.object(engagementPaymentShape).strict().partial(),
     readRoles: FINANCE_ROLES.read, writeRoles: FINANCE_ROLES.write, deleteRoles: FINANCE_ROLES.delete,
   });
 
@@ -272,5 +229,5 @@ export function financeRoutes() {
     return router;
   })();
 
-  return { accounts, funds, categories, revenues, expenses, contributions, contributionPayments, commitments, commitmentPayments, summary };
+  return { accounts, categories, revenues, expenses, engagements, engagementPayments, summary };
 }

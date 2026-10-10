@@ -8,45 +8,15 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 const hash = (plain) => bcrypt.hashSync(plain, 10);
 
-async function ensureOffice() {
-  const office = await prisma.nationalOffice.upsert({
-    where: { code: 'ADU-INTL' },
-    create: { name: "Union des Églises des Assemblées de Dieu", code: 'ADU-INTL' },
-    update: {},
-  });
-  const session = await prisma.aduSession.upsert({
-    where: { code: 'S2025-2030' },
-    create: { name: 'Session 2025-2030', code: 'S2025-2030', officeId: office.id },
-    update: {},
-  });
-  const dept = async (name) => {
-    const found = await prisma.adminDepartment.findFirst({ where: { name, sessionId: session.id } });
-    return found ?? prisma.adminDepartment.create({ data: { name, sessionId: session.id } });
-  };
-  const centre = await dept('Département Administratif du Centre');
-  const est = await dept('Département Administratif de l\'Est');
-  const locality = async (name, departmentId) => {
-    const found = await prisma.locality.findFirst({ where: { name } });
-    return found ?? prisma.locality.create({ data: { name, departmentId } });
-  };
-  return {
-    yaounde: await locality('Yaoundé', centre.id),
-    douala: await locality('Douala', est.id),
-    bafoussam: await locality('Bafoussam', est.id),
-  };
-}
-
 async function ensureChurch() {
   const existing = await prisma.church.findFirst({ where: { code: 'AD-001' } });
   if (existing) return existing;
 
-  const ctx = await ensureOffice();
   const church = await prisma.church.create({
     data: {
       name: 'Assemblée de Dieu de Yaoundé',
       shortName: 'AD Yaoundé',
       code: 'AD-001',
-      localityId: ctx.yaounde.id,
       address: 'Rue 1234, Quartier du Centre',
       city: 'Yaoundé',
       phone: '+237 6 90 00 00 00',
@@ -96,19 +66,6 @@ async function main() {
   await add('samuel', { firstName: 'Samuel', lastName: 'Mvondo', gender: 'MALE', birthDate: new Date('2001-08-15'), phone: '+237 6 90 00 00 08', status: 'CANDIDATE', memberSince: new Date('2024-01-10') });
   await add('anne', { firstName: 'Anne', lastName: 'Essou', gender: 'FEMALE', birthDate: new Date('1995-02-14'), phone: '+237 6 90 00 00 09', status: 'VISITOR' });
 
-  const famMbarga = await prisma.family.upsert({
-    where: { id: 'seed-fam-mbarga' },
-    create: { id: 'seed-fam-mbarga', churchId: church.id, name: 'Famille Mbarga', headPersonId: m.emmanuel.id },
-    update: { headPersonId: m.emmanuel.id },
-  });
-  const famEtoga = await prisma.family.upsert({
-    where: { id: 'seed-fam-etoga' },
-    create: { id: 'seed-fam-etoga', churchId: church.id, name: 'Famille Etoga', headPersonId: m.paul.id },
-    update: { headPersonId: m.paul.id },
-  });
-  await prisma.person.updateMany({ where: { id: { in: [m.marie.id, m.david.id] } }, data: { familyId: famMbarga.id } });
-  await prisma.person.updateMany({ where: { id: m.ruth.id }, data: { familyId: famEtoga.id } });
-
   const dept = async (name, type, leaderId, color) => {
     const found = await prisma.department.findFirst({ where: { churchId: church.id, name } });
     return found ?? prisma.department.create({ data: { churchId: church.id, name, type, leaderPersonId: leaderId, color } });
@@ -135,9 +92,6 @@ async function main() {
   await addMember(dJeunesse.id, m.david.id, 'MEMBER');
   await addMember(dLouange.id, m.jean.id, 'LEADER');
   await addMember(dLouange.id, m.salome.id, 'MEMBER');
-  await prisma.departmentStat.create({
-    data: { churchId: church.id, departmentId: dJeunesse.id, periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31'), effectiveCount: 45, maleCount: 20, femaleCount: 25 },
-  });
 
   await seedUsers(church.id);
   await seedActivities(church.id, m);
@@ -151,7 +105,7 @@ async function main() {
 
 async function seedUsers(churchId) {
   const users = [
-    { email: 'admin@ad-yaounde.org', fullName: 'Administrateur AD', role: 'ADMIN', mustChangePassword: false },
+    { email: process.env.ADMIN_EMAIL || 'admin@ad-yaounde.org', fullName: 'Administrateur AD', role: 'ADMIN', mustChangePassword: true },
     { email: 'pastor@ad-yaounde.org', fullName: 'Pasteur Emmanuel Mbarga', role: 'PASTOR', mustChangePassword: true },
     { email: 'secretaire@ad-yaounde.org', fullName: 'Salomé Bella', role: 'SECRETARY', mustChangePassword: true },
     { email: 'tresorier@ad-yaounde.org', fullName: 'Jean-Baptiste Nkolo', role: 'TREASURER', mustChangePassword: true },
@@ -160,7 +114,7 @@ async function seedUsers(churchId) {
   for (const u of users) {
     await prisma.user.upsert({
       where: { churchId_email: { churchId, email: u.email } },
-      create: { churchId, ...u, passwordHash: hash('ChangeMe123!') },
+      create: { churchId, ...u, passwordHash: hash(u.role === 'ADMIN' ? (process.env.ADMIN_PASSWORD || 'ChangeMe123!') : 'ChangeMe123!') },
       update: {},
     });
   }
@@ -198,17 +152,9 @@ async function seedActivities(churchId, m) {
   await act(tEtude.id, 'Étude biblique du mercredi', 1, 90, m.jean.id, 'Salle 2', 'DONE');
   await act(tChorale.id, 'Répétition de chorale', 6, 120, m.salome.id, 'Salle de musique', 'PLANNED');
 
-  // Présences nominatives sur le culte
-  const presentPersons = [m.emmanuel.id, m.marie.id, m.jean.id, m.salome.id, m.esther.id, m.paul.id, m.ruth.id];
-  for (const personId of presentPersons) {
-    await prisma.attendanceRecord.upsert({
-      where: { activityId_personId: { activityId: culte.id, personId } },
-      create: { churchId, activityId: culte.id, personId, status: 'PRESENT' },
-      update: {},
-    });
-  }
+  // Présences du culte (mode quantitatif)
   await prisma.attendanceStat.create({
-    data: { churchId, activityId: culte.id, presentCount: 7, totalCount: 9, adultCount: 7, maleCount: 3, femaleCount: 4 },
+    data: { churchId, activityId: culte.id, presentCount: 7, absentCount: 2, visitorCount: 1, notes: 'Absents : David, Samuel (excusé).' },
   });
 }
 
@@ -220,12 +166,7 @@ async function seedSundaySchool(churchId, m) {
     data: { churchId, name: 'Classe des enfants (6-10 ans)', teacherId: m.marie.id, minAge: 6, maxAge: 10 },
   });
   const session = await prisma.sundaySchoolSession.create({
-    data: { churchId, classId: cls.id, title: 'Leçon 1 : La création', sessionDate: new Date(), teacherId: m.marie.id, lessonTopic: 'Genèse 1', status: 'DONE' },
-  });
-  await prisma.sundaySchoolParticipant.upsert({
-    where: { sessionId_personId: { sessionId: session.id, personId: m.david.id } },
-    create: { churchId, sessionId: session.id, personId: m.david.id, status: 'PRESENT' },
-    update: {},
+    data: { churchId, classId: cls.id, title: 'Leçon 1 : La création', sessionDate: new Date(), teacherId: m.marie.id, lessonTopic: 'Genèse 1', status: 'DONE', presentCount: 1, attendanceNotes: 'David présent.' },
   });
 }
 
@@ -237,19 +178,8 @@ async function seedFormations(churchId, m) {
     data: { churchId, name: 'Formation au baptême', description: 'Préparation au baptême — cursus officiel.', gradingMode: 'PERCENT', passThreshold: 70, totalLessons: 6, durationWeeks: 8 },
   });
 
-  const lesson1 = await prisma.lesson.create({ data: { churchId, programId: program.id, title: 'Les fondements de la foi', number: 1, objective: 'Comprendre les bases du salut.', durationMin: 90 } });
+  const lesson1 = await prisma.lesson.create({ data: { churchId, programId: program.id, title: 'Les fondements de la foi', number: 1, objective: 'Comprendre les bases du salut.', durationMin: 90, verses: 'Jean 3:16 ; Matthieu 28:19 ; Actes 2:42' } });
   const lesson2 = await prisma.lesson.create({ data: { churchId, programId: program.id, title: 'La vie de l\'Église', number: 2, durationMin: 90 } });
-
-  for (const [book, chapter, verse, text] of [
-    ['Jean', 3, 16, 'Car Dieu a tant aimé le monde qu\'il a donné son fils unique.'],
-    ['Matthieu', 28, 19, 'Allez donc, enseignez toutes les nations.'],
-    ['Actes', 2, 42, 'Tous s\'assemblaient chaque jour dans le temple.'],
-  ]) {
-    const v = await prisma.bibleVerse.findFirst({ where: { churchId, book, chapter, verse } })
-      ?? await prisma.bibleVerse.create({ data: { churchId, book, chapter, verse, text, version: 'LSG' } });
-    const link = await prisma.lessonVerse.findFirst({ where: { churchId, lessonId: lesson1.id, verseId: v.id } });
-    if (!link) await prisma.lessonVerse.create({ data: { churchId, lessonId: lesson1.id, verseId: v.id, position: 1 } });
-  }
 
   const session = await prisma.formationSession.create({
     data: { churchId, programId: program.id, name: 'Session 2026-1', startDate: new Date(), status: 'ONGOING', responsibleId: m.emmanuel.id, location: 'Salle de formation' },
@@ -304,13 +234,13 @@ async function seedFinance(churchId, m) {
     await exp('Entretien du toit', 150000, accounts.ecobank.id, cImmobilier.id, new Date(Date.now() - 2 * 86400000), 'Entreprise TOIT-PLUS');
   }
 
-  const contribution = await prisma.contribution.findFirst({ where: { churchId } });
-  if (!contribution) {
-    const cot = await prisma.contribution.create({
-      data: { churchId, name: 'Cotisation annuelle 2026', amount: 12000, periodicity: 'ANNUAL', periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31'), dueDate: new Date('2026-03-31'), status: 'ACTIVE' },
+  const engCount = await prisma.engagement.count({ where: { churchId } });
+  if (engCount === 0) {
+    const cot = await prisma.engagement.create({
+      data: { churchId, name: 'Cotisation annuelle 2026', amount: 12000, periodicity: 'ANNUAL', periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31'), dueDate: new Date('2026-03-31'), status: 'OPEN' },
     });
-    await prisma.contributionPayment.create({
-      data: { churchId, contributionId: cot.id, personId: m.paul.id, amount: 12000, paidAt: new Date(), periodLabel: '2026' },
+    await prisma.engagementPayment.create({
+      data: { churchId, engagementId: cot.id, personId: m.paul.id, amount: 12000, paidAt: new Date(), periodLabel: '2026' },
     });
   }
 
@@ -319,11 +249,11 @@ async function seedFinance(churchId, m) {
     const proj = await prisma.project.create({
       data: { churchId, name: 'Construction salle polyvalente', type: 'CONSTRUCTION', status: 'ONGOING', startDate: new Date('2026-02-01'), targetAmount: 25000000, responsibleId: m.emmanuel.id },
     });
-    const commit = await prisma.commitment.create({
-      data: { churchId, personId: m.paul.id, projectId: proj.id, kind: 'FINANCIAL', description: 'Promesse de don pour la salle', amount: 500000, status: 'PARTIAL', dueDate: new Date('2026-12-31') },
+    const commit = await prisma.engagement.create({
+      data: { churchId, personId: m.paul.id, projectId: proj.id, name: 'Promesse de don pour la salle', description: 'Promesse de don pour la salle', amount: 500000, status: 'PARTIAL', dueDate: new Date('2026-12-31') },
     });
-    await prisma.commitmentPayment.create({
-      data: { churchId, commitmentId: commit.id, amount: 200000, paidAt: new Date() },
+    await prisma.engagementPayment.create({
+      data: { churchId, engagementId: commit.id, amount: 200000, paidAt: new Date() },
     });
   }
 }

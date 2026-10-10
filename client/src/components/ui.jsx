@@ -8,6 +8,7 @@ import {
   Save, Upload,
 } from 'lucide-react';
 import { enumOf } from '../lib/enums.js';
+import { useI18n } from '../lib/i18n.jsx';
 
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -82,8 +83,9 @@ export function Badge({ tone = 'gray', children, className = '' }) {
 
 /** Badge construit depuis une énumération : BadgeEnum group="PersonStatus" value=row.status */
 export function BadgeEnum({ group, value }) {
+  const { t } = useI18n();
   const info = enumOf(group, value);
-  return <Badge tone={info.color}>{info.label}</Badge>;
+  return <Badge tone={info.color}>{t(info.label)}</Badge>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -107,17 +109,18 @@ export function PageHeader({ title, subtitle, actions, icon }) {
 /* Champs de formulaire                                               */
 /* ------------------------------------------------------------------ */
 export function Field({ label, required, error, hint, children, className = '' }) {
+  const { t } = useI18n();
   return (
     <label className={cn('field', className)}>
       {label && (
         <span className="field-label">
-          {label}
+          {t(label)}
           {required && <em>*</em>}
         </span>
       )}
       {children}
-      {hint && <span className="field-hint">{hint}</span>}
-      {error && <span className="field-error">{error}</span>}
+      {hint && <span className="field-hint">{t(hint)}</span>}
+      {error && <span className="field-error">{t(error)}</span>}
     </label>
   );
 }
@@ -131,25 +134,27 @@ export function Textarea({ invalid, rows = 4, ...rest }) {
 }
 
 export function Select({ options, placeholder, value, onChange, invalid, ...rest }) {
+  const { t } = useI18n();
   return (
     <select className={cn('input select', invalid && 'input-invalid')} value={value || ''} onChange={onChange} {...rest}>
-      {placeholder && <option value="">{placeholder}</option>}
+      {placeholder && <option value="">{t(placeholder)}</option>}
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+        <option key={opt.value} value={opt.value}>{t(opt.label)}</option>
       ))}
     </select>
   );
 }
 
 /** Sélecteur « recherche asynchrone » — chargement d'options à la demande. */
-export function AsyncSelect({ label, value, onChange, options = [], loading = false, placeholder = 'Sélectionner…', disabled = false, error }) {
+export function AsyncSelect({ label, value, onChange, options = [], loading = false, placeholder, disabled = false, error }) {
+  const { t } = useI18n();
   return (
     <Field label={label} error={error}>
       <div className="async-select">
         <select className="input select" value={value || ''} onChange={(ev) => onChange(ev.target.value || null)} disabled={disabled}>
-          <option value="">{loading ? 'Chargement…' : placeholder}</option>
+          <option value="">{loading ? t('Chargement…') : t(placeholder || 'Sélectionner…')}</option>
           {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.label)}</option>
           ))}
         </select>
       </div>
@@ -238,21 +243,23 @@ export function Modal({ open, title, subtitle, onClose, children, footer, wide =
 /* ------------------------------------------------------------------ */
 /* Divers                                                             */
 /* ------------------------------------------------------------------ */
-export function Spinner({ label = 'Chargement…' }) {
+export function Spinner({ label }) {
+  const { t } = useI18n();
   return (
     <div className="spinner-wrap">
       <Icon name="LoaderCircle" size={28} className="spin" />
-      <span>{label}</span>
+      <span>{t(label || 'Chargement…')}</span>
     </div>
   );
 }
 
-export function EmptyState({ title = 'Aucune donnée', message, icon = 'ChevronsUpDown' }) {
+export function EmptyState({ title, message, icon = 'ChevronsUpDown' }) {
+  const { t } = useI18n();
   return (
     <div className="empty-state">
       <Icon name={icon} size={36} />
-      <h3>{title}</h3>
-      {message && <p>{message}</p>}
+      <h3>{t(title || 'Aucune donnée')}</h3>
+      {message && <p>{t(message)}</p>}
     </div>
   );
 }
