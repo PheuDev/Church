@@ -29,7 +29,7 @@ const accountShape = {
   accountNumber: z.string().max(80).nullable().optional(),
   bankName: z.string().max(120).nullable().optional(),
   phoneNumber: z.string().max(40).nullable().optional(),
-  currency: z.string().max(10).default('XAF').optional(),
+  currency: z.string().max(10).default('XOF').optional(),
   initialBalance: z.number().default(0).optional(),
   description: z.string().max(1000).nullable().optional(),
   isActive: z.boolean().default(true).optional(),

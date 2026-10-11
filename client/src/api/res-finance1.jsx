@@ -40,7 +40,7 @@ export const FINANCE1_R = {
       { title: 'Type',      render: (r) => <BadgeEnum group="AccountType" value={r.type} /> },
       { title: 'Sources associées', render: (r) => <span style={{ fontSize: 12 }}>{sourcesLabel(r)}</span> },
       { title: 'Banque',    render: (r) => r.bankName || '—' },
-      { title: 'Devise',    render: (r) => r.currency || 'XAF' },
+      { title: 'Devise',    render: (r) => r.currency || 'XOF' },
     ],
     form: [
       { name: 'name',   label: 'Nom du compte', type: 'text', required: true },
@@ -54,7 +54,7 @@ export const FINANCE1_R = {
       { name: 'accountNumber',  label: 'N° de compte', type: 'text' },
       { name: 'bankName',       label: 'Banque',        type: 'text' },
       { name: 'phoneNumber',    label: 'Téléphone',     type: 'text' },
-      { name: 'currency',       label: 'Devise',        type: 'text' },
+      { name: 'currency',       label: 'Code devise',   type: 'text', placeholder: 'XOF', omitWhenEmpty: true },
       { name: 'initialBalance', label: 'Solde initial', type: 'number', min: 0, step: 'any' },
       { name: 'description',    label: 'Description',   type: 'textarea', full: true },
       F.isActive(),

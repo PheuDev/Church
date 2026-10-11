@@ -56,7 +56,7 @@ export const SSUNDAY_R = {
       { name: 'presentCount', label: 'Effectif présent',  type: 'number', min: 0 },
       { name: 'absentCount',  label: 'Absents',           type: 'number', min: 0 },
       { name: 'bibleCount',   label: 'Bibles apportées',  type: 'number', min: 0 },
-      { name: 'offering',     label: 'Offrande (FCFA)',   type: 'number', min: 0, step: 'any' },
+      { name: 'offering',     label: 'Offrande (F CFA)',   type: 'number', min: 0, step: 'any' },
       { name: 'attendanceNotes', label: 'Observations', type: 'textarea', full: true,
         hint: 'Noms des absents, remarques diverses…' },
     ],

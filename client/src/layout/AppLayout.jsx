@@ -1,7 +1,7 @@
 // ============================================================
 // AppLayout — mise en page : barre latérale + barre supérieure
 // ============================================================
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Building2, GraduationCap, CalendarDays, ListTodo,
@@ -81,6 +81,7 @@ export function AppLayout({ children }) {
   const [open, setOpen] = useState(false);
   const [offline, setOffline] = useState(false);
   const [churchName, setChurchName] = useState('');
+  const offlineTimer = useRef(null);
 
   useEffect(() => {
     // Fiche de l'église courante — endpoint dédié (pas de liste à parcourir).
@@ -90,9 +91,24 @@ export function AppLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    setNetworkStatusHandler(setOffline);
-    return () => setNetworkStatusHandler(null);
-  }, []);
+    setNetworkStatusHandler((online) => {
+      if (online) {
+        clearTimeout(offlineTimer.current);
+        offlineTimer.current = null;
+        setOffline(false);
+      } else if (!offlineTimer.current && !offline) {
+        // Ignore brief failures while a free Render instance is waking up.
+        offlineTimer.current = setTimeout(() => {
+          offlineTimer.current = null;
+          setOffline(true);
+        }, 5000);
+      }
+    });
+    return () => {
+      clearTimeout(offlineTimer.current);
+      setNetworkStatusHandler(null);
+    };
+  }, [offline]);
 
   // Le menu latéral se ferme aussi avec Échap (mobile).
   useEffect(() => {

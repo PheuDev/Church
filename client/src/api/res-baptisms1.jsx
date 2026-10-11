@@ -76,7 +76,7 @@ export const BAPTISM_CANDIDATES_R = {
       { name: 'status',           label: 'Statut', type: 'select', options: 'CandidateStatus' },
       { name: 'enrolledAt',       label: 'Date d\'inscription', type: 'date',
         hint: 'Se remplit automatiquement à aujourd\'hui si laissé vide.' },
-      { name: 'subscriptionAmount', label: 'Souscription (FCFA)', type: 'number', min: 0, step: 'any' },
+      { name: 'subscriptionAmount', label: 'Souscription (F CFA)', type: 'number', min: 0, step: 'any' },
       { name: 'subscriptionPaid',   label: 'Souscription payée',  type: 'boolean' },
       { name: 'hasIdPhoto',         label: 'Photo d\'identité fournie',  type: 'boolean' },
       { name: 'hasBirthCertificate', label: 'Acte de naissance fourni', type: 'boolean' },

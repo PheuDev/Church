@@ -10,9 +10,7 @@ const hash = (plain) => bcrypt.hashSync(plain, 10);
 
 async function ensureChurch() {
   const existing = await prisma.church.findFirst({ where: { code: 'AD-001' } });
-  if (existing) return existing;
-
-  const church = await prisma.church.create({
+  const church = existing ?? await prisma.church.create({
     data: {
       name: 'Assemblée de Dieu de Yaoundé',
       shortName: 'AD Yaoundé',
@@ -31,9 +29,14 @@ async function ensureChurch() {
     data: [
       { churchId: church.id, key: 'certificateInstitutionName', value: 'Union des Églises des Assemblées de Dieu' },
       { churchId: church.id, key: 'gradingMode', value: 'PERCENT' },
-      { churchId: church.id, key: 'currency', value: 'XAF' },
     ],
     skipDuplicates: true,
+  });
+
+  await prisma.churchSetting.upsert({
+    where: { churchId_key: { churchId: church.id, key: 'currency' } },
+    create: { churchId: church.id, key: 'currency', value: 'XOF' },
+    update: { value: 'XOF' },
   });
 
   return church;
@@ -41,6 +44,12 @@ async function ensureChurch() {
 
 async function main() {
   const church = await ensureChurch();
+
+  // Normalize existing account records from the previous, incorrect currency code.
+  await prisma.account.updateMany({
+    where: { churchId: church.id, currency: 'XAF' },
+    data: { currency: 'XOF' },
+  });
 
   const personCount = await prisma.person.count({ where: { churchId: church.id } });
   if (personCount > 0) {
@@ -203,7 +212,7 @@ async function seedFinance(churchId, m) {
   const accounts = [];
   const acc = async (name, type, accountNumber, phone) => {
     const found = await prisma.account.findFirst({ where: { churchId, name } });
-    return found ?? prisma.account.create({ data: { churchId, name, type, accountNumber, phoneNumber: phone, currency: 'XAF' } });
+    return found ?? prisma.account.create({ data: { churchId, name, type, accountNumber, phoneNumber: phone, currency: 'XOF' } });
   };
   accounts.caisse = await acc('Caisse principale', 'CASH');
   accounts.ecobank = await acc('Compte ECOBANK', 'BANK', 'ECOBANK-00123456');

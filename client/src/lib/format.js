@@ -40,14 +40,13 @@ export function fmtDateTime(value) {
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: 'XAF',
   minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
 export function fmtMoney(value) {
   if (value === null || value === undefined) return '—';
-  return CURRENCY_FORMATTER.format(Number(value));
+  return `${CURRENCY_FORMATTER.format(Number(value))} F CFA`;
 }
 
 export function fmtNumber(value, decimals = 0) {

@@ -782,7 +782,7 @@ model Account {
   accountNumber  String?
   bankName       String?
   phoneNumber    String?
-  currency       String      @default("XAF")
+  currency       String      @default("XOF")
   initialBalance Decimal     @default(0)
   description    String?
   isActive       Boolean     @default(true)
